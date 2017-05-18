@@ -28,13 +28,18 @@ import (
  
 var cli *bool = flag.Bool("cli", false, "Use cli.")
 var port *int = flag.Bool("port", 9090, "Set server port.")
-
-if *cli {
-    go cli_init(*port);
+func main() {
+	fmt.Printf("Init port %d.\n", *port)
+	fmt.Println("-----------------------")
+	if *cli {
+	    go cli_init(*port);
+	}
+	readloop(*port);
+	os.exit(0)
 }
 
-readloop($port);
-os.exit(0)
+
+
 
 #**************************************************
 # ѭ�����Ĵ���
@@ -51,7 +56,7 @@ func readloop(port int) {
     defer socket.Close()
     
     fmt.Printf("Init OK (listen %d)\n",port);
-    while(1){
+    for true {
         buff := make([]byte, 8000)
         readnum, client, err := socket.ReadFromUDP(buff)
         if err != nil {
@@ -77,24 +82,23 @@ func cli_init(port int) {
         return
     }
     defer socket.Close()
-
-    senddata := [8000]byte
     
     if err != nil {
         fmt.Println("发送数据失败!", err)
         return
     }
-    my $len = 0;
-    while (1) {
-        my $getdata =<STDIN>;
-        chomp $getdata;
-        if((!defined $getdata) || (length $getdata <= 0)){
-            next;
+    
+    reader := bufio.NewReader(os.Stdin)
+    for true {
+        data, _, _ := reader.ReadLine()
+        getdata := string(data)
+        if(len(getdata) <= 0){
+            continue;
         }
 		
-        _, err = socket.Write(senddata)
+        _, err = socket.Write([]byte(getdata))
     }
-    return 0;
+    return
 }
 
 func sendip(socket *UDPConn, client net.UDPAddr, pkt []bype, len int)
@@ -107,12 +111,13 @@ func sendip(socket *UDPConn, client net.UDPAddr, pkt []bype, len int)
     if (1 == order) {
         sim_simple(client,pkt);
     }elsif(3 == order){
-        $pkt =~ s/^\s*{(.*)}\s*$/$1/;
+        pkt = strings.TrimSpace(pkt)
         fmt.Println ("--------------------------");
-        fmt.Println ( "NTX : ",string(pkt));
+        fmt.Println ( "NTX : ",pkt);
         fmt.Println ("--------------------------");
         pkt = strings.ToLower(pkt)
-        sim_ntx(socker, client,split(/\s+/,$pkt));
+        spacecomp := regexp.Compile("\\s+")
+        sim_ntx(socker, client,spacecomp.Split(pkt, 100));
     }elsif(0 == $order){ #config
         config_exe($client,split(/\s+/,$pkt));
      }else{
