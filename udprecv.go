@@ -106,32 +106,33 @@ func sendip(socket *UDPConn, client net.UDPAddr, pkt []bype, len int)
 	order := binary.BigEndian.Uint16(pkt[:1])
     pkt = string(pkt[2:len]);
     //print "ORDER : $order\n";
-
-    //print "ORDER : $order\n";
+	fmt.Printf("ORDER : %d", order)
     if (1 == order) {
-        sim_simple(client,pkt);
-    }elsif(3 == order){
+        //sim_simple(client,pkt);
+    } else if (3 == order) {
         pkt = strings.TrimSpace(pkt)
         fmt.Println ("--------------------------");
         fmt.Println ( "NTX : ",pkt);
         fmt.Println ("--------------------------");
         pkt = strings.ToLower(pkt)
         spacecomp := regexp.Compile("\\s+")
-        sim_ntx(socker, client,spacecomp.Split(pkt, 100));
-    }elsif(0 == $order){ #config
-        config_exe($client,split(/\s+/,$pkt));
+        argslist :=spacecomp.Split(pkt, 100)
+        sim_ntx(socker, client, argslist[0],argslist[1:]...);
+    }else if (0 == order) {    #config
+        //config_exe($client,split(/\s+/,$pkt));
      }else{
         print "UNKNOW ORDER\n";
         return -1;
     }
     return 0;
 }
-ntx_data = make(map[string] interface)
-func sim_ntx(socket *UDPConn, client net.UDPAddr, order string , arg []string)
+
+ntx_data := make(map[string] interface)
+
+func sim_ntx(socket *UDPConn, client net.UDPAddr, order string , args []string)
 {
-    our %ntx_data;
-    my %data = argfrase(@arg);
-    printf "%-10s : %s\n","FRASE ORDER",$order;
+    data := argfrase(arg);
+    fmt.Printf("%-10s : %s\n", "FRASE ORDER", order;
     if(exists $data{object}){
         $data{object} =~ s/^\:\://;
     }
@@ -508,3 +509,37 @@ func sim_ntx(socket *UDPConn, client net.UDPAddr, order string , arg []string)
     return 0;
 }
 
+#**************************************************
+# 参数解析 order -s1 1 -s2 2 -s3
+#**************************************************
+func argfrase(args ...string) map[string] interface*
+{
+    my @arg = @_;
+    my %switch = ();
+    my ($key,$info,$c);
+    foreach(@arg){
+        next if (/^\s*$/);         
+        if (/^-(.+)/) {
+            $key = $1;
+            $switch{$key} = undef;
+            $c = 0;
+        }else{
+            if (defined $key) {
+                if (defined $switch{$key}) {
+                    $switch{$key} .= ' '.$_;
+                }else{
+                    $switch{$key} = $_;
+                }
+                if (/^{/) {
+                    $c = 1;
+                }elsif(/}$/){
+                    $c = 0;
+                }
+                if (not $c) {
+                    $key = undef;
+                }
+            }
+        }
+    }
+    return %switch;
+}

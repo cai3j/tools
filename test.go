@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 	//"time"
+	"regexp"
 	"net"
 	"encoding/binary"
 	"github.com/google/gopacket"
@@ -65,8 +66,30 @@ func cliOrder(order_chan chan string) {
     os.Exit(0)
 }
 
+var retmap map[string]interface{}
+
+func test(order string, args ...string)  map[string]interface{} {
+	fmt.Printf("string : %s\n", order)
+	for i,v := range args {
+		fmt.Printf("%d : %s\n", i,v)
+	}
+	if retmap == nil{
+		retmap = make(map[string]interface{})
+	}
+	retmap["123"] = 1
+	retmap["234"] = "DE"
+	log.Printf(" test ret : %v", retmap)
+	return retmap
+}
+
 func ExeTest(args []string) {
 	log.Printf("ExeTest args : %v", args)
+	if ok,err := regexp.MatchString('\d', "a1bc"); err == nil && ok  {
+		log.Printf("match \n")
+	}
+	ilist := []string{"order"}
+	retv := test(ilist[0],ilist[1:]...)
+	log.Printf(" test : %v", retv)
 	a := 1
 	if a > 0 {
 		fmt.Println("A > 0")

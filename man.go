@@ -90,15 +90,33 @@ func packetFun(args []string) error {
 			fmt.Printf("order is %v", orderin)
 			//return
 		case packet = <-in:
-			//fmt.Println(packet.String())
+			fmt.Println("------------------------------------")
+			fmt.Println(packet.String())
 			//fmt.Println(packet.Dump())
+			fmt.Println("------------------------------------")
+			for i,k := range packet.Layers() {
+				fmt.Printf("%d : type %s\n",i,k.LayerType())
+				if k.LayerType() == layers.LayerTypeEthernet {
+					eth := k.(*layers.Ethernet)
+					fmt.Printf("   this is ethernet srcMac:%s, dstMac:%s\n",
+							net.HardwareAddr(eth.SrcMAC),
+							net.HardwareAddr(eth.DstMAC))
+				} else if k.LayerType() == layers.LayerTypeIPv4 {
+					ip4 := k.(*layers.IPv4)
+					fmt.Printf("   this is ipv4 src : %s, dst : %s\n",
+						    ip4.SrcIP,ip4.DstIP)
+				}
+				
+			}
+			fmt.Println("------------------------------------")
 			first := packet.LinkLayer()
+			
 			fmt.Printf("first layer type : %v , %v\n",reflect.TypeOf(first),reflect.TypeOf(first.LayerType()))
 			if first.LayerType() ==  layers.LayerTypeEthernet {
 				eth := first.(*layers.Ethernet)
 				fmt.Printf("this is ethernet srcMac:%v\n",eth.SrcMAC)
 			}
-			fmt.Printf("Second layer type : %v", 1)
+			fmt.Printf("Second layer type : %v\n", 1)
 			//ethlayer := packet.Layer(layers.LayerTypeEthernet)
 			//fmt.Printf("Eth type : %v\n",ethlayer)
 			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
