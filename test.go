@@ -10,6 +10,7 @@ import (
 	"strings"
 	"log"
 	"os"
+	"os/exec"
 	"bufio"
 	"sync"
 	"encoding/binary"
@@ -50,7 +51,8 @@ func scan(iface *net.Interface) error {
 	if addr != nil {
 		fmt.Printf("Address : %+v(type:%v)\n",addr,reflect.TypeOf(addr))
 		value1 := reflect.ValueOf(addr)
-		fmt.Printf("Address : %+v(type:%v) %v\n",value1,reflect.TypeOf(value1),value1.Type())
+		fmt.Printf("Address : %+v(type:%v) %v\n",
+			value1,reflect.TypeOf(value1),value1.Type())
 	}
 	
 	return nil
@@ -94,7 +96,6 @@ func readPacket(handle *pcap.Handle, stop chan string) {
 			log.Printf("pkt : %+v", packet)
 			//icmp := icmpLayer.(*layers.ICMPv4)
 			//log.Printf("%+v",icmp)
-			//log.Printf("IP %v is at %v", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
 		}
 	}
 }
@@ -179,7 +180,8 @@ func ExePacket(args []string) error {
 			fmt.Println("------------------------------------")
 			first := packet.LinkLayer()
 			
-			fmt.Printf("first layer type : %v , %v\n",reflect.TypeOf(first),reflect.TypeOf(first.LayerType()))
+			fmt.Printf("first layer type : %v , %v\n",
+				reflect.TypeOf(first),reflect.TypeOf(first.LayerType()))
 			if first.LayerType() ==  layers.LayerTypeEthernet {
 				eth := first.(*layers.Ethernet)
 				fmt.Printf("this is ethernet srcMac:%v\n",eth.SrcMAC)
@@ -190,7 +192,8 @@ func ExePacket(args []string) error {
 			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 				fmt.Println("This is a TCP packet!")
 			}
-			//log.Printf("IP %v is at %v", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
+			//log.Printf("IP %v is at %v", net.IP(arp.SourceProtAddress), 
+			//	net.HardwareAddr(arp.SourceHwAddress))
 		}
 	}
 }
@@ -211,6 +214,41 @@ func test(order string, args ...string)  map[string]interface{} {
 	return retmap
 }
 
+//**************************************************
+// 参数解析 order -s1 1 -s2 2 -s3
+//**************************************************
+func argfrase(args ...string) map[string]string {
+    iswitch := make(map[string]string)
+    var key string = ""; var c bool = false
+    //fmt.Printf("nill   :   %v\n", key)
+    for _,v := range args {
+        if ok,_ := regexp.MatchString(`^\s*$`,v);ok {
+        	continue
+        }         
+        if ilist :=regexp.MustCompile(`^-(.+)`).FindStringSubmatch(v);len(ilist) > 0 {
+            key = ilist[1]
+            iswitch[key] = ""
+            c = false
+        } else {
+            if key != "" {
+                if v2,ok := iswitch[key]; ok {
+                    iswitch[key] = v2 + " " + v;
+                }else{
+                    iswitch[key] = v;
+                }
+                if ok,_ := regexp.MatchString(`^{`,v);ok {
+                    c = true
+                }else if ok,_ := regexp.MatchString(`/}$`,v);ok{
+                    c = false
+                }
+                if c != true {
+                    key = "";
+                }
+            }
+        }
+    }
+    return iswitch;
+}
 func ExeTest(args []string) error {
 	fmt.Printf("test order : %v\n", args)
 	fmt.Println("Int :",*intFlag)
@@ -219,12 +257,14 @@ func ExeTest(args []string) error {
 		return nil
 	}
 	fmt.Println("Hello world")
-	if ok,err := regexp.MatchString(`\d`, "a1bc"); err == nil && ok  {
-		log.Printf("match \n")
-	}
+	
+	
+	fmt.Println("=================test func ==========================")
 	ilist := []string{"order"}
 	retv := test(ilist[0],ilist[1:]...)
 	log.Printf(" test : %v", retv)
+	
+	fmt.Println("=================test else if ==========================")
 	a := 1
 	if a > 0 {
 		fmt.Println("A > 0")
@@ -233,11 +273,42 @@ func ExeTest(args []string) error {
 	} else {
 		fmt.Println("A = 0")
 	}
+	
+	fmt.Println("=================test time==========================")
 	var t1 = time.Now()
 	var t2 = t1.Add(time.Minute)
 	fmt.Printf("Time : %v , %v\n",t1.Format(time.RFC3339),t2)
+	
+	fmt.Println("=================test os==========================")
+	fmt.Printf("os.getpid : %+v\n",os.Getpid())
+	pwd,_ := os.Getwd()
+	fmt.Printf("os.Getwd : %+v\n", pwd)
+	hostname,_ := os.Hostname()
+	fmt.Printf("os.Hostname : %+v\n", hostname)
+	fmt.Printf("os.TempDir : %+v\n",os.TempDir())
+	fmt.Printf("os.Getenv : %+v\n",os.Getenv("PATH"))
+	
+	fmt.Println("=================test exec==========================")
+	output,err := exec.Command("ls").Output()
+	fmt.Printf(" ls : %+v(%v)\n", string(output),reflect.TypeOf(output))
+	output,err = exec.Command("xx").Output()
+	fmt.Printf(" xx : %+v(%v)  err %+v(%v)\n", string(output),reflect.TypeOf(output),err,reflect.TypeOf(err))
+	output,err = exec.Command("xx").CombinedOutput()
+	fmt.Printf(" xx : %+v(%v)\n", string(output),reflect.TypeOf(output))
+	
+	fmt.Println("=================test list==========================")
+	var list1 []int = []int{2,4,5}
+	fmt.Printf("list   %+v (%d)\n",list1,len(list1))
+	
+	fmt.Println("=================test==========================")
+	var v1 int; var v2,v3 string
+	v1,v2,v3 = 1,"12","34"
+	fmt.Println(v1,v2,v3)
+	argmap := argfrase("k", "-i","m")
+	fmt.Printf("arg frase : %+v\n", argmap)
 	return nil
 }
+
 func ExeNet(args []string) error {
 	fmt.Printf("intf order : %v\n", args)
 	ifaces, err := net.Interfaces()
@@ -256,16 +327,21 @@ func ExeNet(args []string) error {
 
 func ExeRegexp(args []string) error{
 	fmt.Printf("regexpFun : %v\n", args)
+	
 	ret,_ := regexp.MatchString("a.b","acb")
 	fmt.Printf("regexp : %+v\n",ret)
-	reg1 := regexp.MustCompile("a(.*?)b")
 	
+	if ok,err := regexp.MatchString(`\d`, "a1bc"); err == nil && ok  {
+		log.Printf("match \n")
+	}
+	
+	reg1 := regexp.MustCompile("a(.*?)b")
 	fmt.Printf("sub match all ok: %v\n", reg1.FindAllStringSubmatch("seafbooadb",10))
 	fmt.Printf("sub match all err: %v\n", reg1.FindAllStringSubmatch("seaooa",10))
 	fmt.Printf("sub match ok: %v\n", reg1.FindStringSubmatch("seafbooadb"))
 	fmt.Printf("sub match err: %v\n", reg1.FindStringSubmatch("sebooa"))
 	
-	reg2,_ := regexp.Compile("\\d")
+	reg2,_ := regexp.Compile(`\d`)
 	reg3 := regexp.MustCompile("\\d")	
 	fmt.Printf("Compile : %v\n", reg2.FindStringSubmatch("1"))
 	fmt.Printf("Must Compile : %v\n", reg3.FindStringSubmatch("1"))
@@ -279,8 +355,8 @@ func ExeStr(args []string) error{
 	var str2 string = "123"
 	fmt.Printf("Compare %v\n",strings.Compare(str1, str2))
 	fmt.Printf("A + B =  %v\n",str1+str2)
-	var list1 []int = []int{2,4,5}
-	fmt.Printf("list   %+v (%d)\n",list1,len(list1))
+	
+	
 	return nil
 }
 
@@ -410,7 +486,7 @@ func main() {
 			ExeUdpc(args)
 		case "pcap":
 			ExePcap(args)
-		case "cli2":
+		case "cli":
 			ExeCli(args)
 		default :
 			flag.PrintDefaults()
