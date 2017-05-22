@@ -4,40 +4,32 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"reflect"
-	"time"
+	//"reflect"
+	//"time"
 	"regexp"
 	"strings"
-	"log"
+	//"log"
 	"os"
-	"os/exec"
+	//"os/exec"
 	"bufio"
-	"sync"
+	//"sync"
 	"encoding/binary"
-    "github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
+    //"github.com/google/gopacket"
+	//"github.com/google/gopacket/layers"
+	//"github.com/google/gopacket/pcap"
 )
 
-struct InterfaceInfo{
+type InterfaceInfo struct{
  	intf string;
  	pid int;
  	mac string;
-};
+}
  
-var intf map[string] InterfaceInfo;
+var intf map[string] InterfaceInfo
  
 var cli *bool = flag.Bool("cli", false, "Use cli.")
-var port *int = flag.Bool("port", 9090, "Set server port.")
-func main() {
-	fmt.Printf("Init port %d.\n", *port)
-	fmt.Println("-----------------------")
-	if *cli {
-	    go cli_init(*port);
-	}
-	readloop(*port);
-	os.exit(0)
-}
+var port *int = flag.Int("port", 9090, "Set server port.")
+
 
 func readloop(port int) {
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
@@ -60,7 +52,7 @@ func readloop(port int) {
         //fmt.Println("--------------------------\n")
         //printBlock(1,0,$buff);
         //print "--------------------------\n";
-        sendip(socket, client,buff,len);
+        sendip(socket, client,buff,readnum);
     
 	    //chop($buff); 
         //print "$buff\n";
@@ -95,15 +87,17 @@ func cli_init(port int) {
     }
     return
 }
-var ntx_data map[string]intrface{}
+
+
+
 func sendip_init() {
+	intf = make(map[string] InterfaceInfo)
 	sim_ntx_init()
 }
 
-func sendip(socket *UDPConn, client net.UDPAddr, pkt []bype, len int)
-{
-	order := binary.BigEndian.Uint16(pkt[:1])
-    pkt = string(pkt[2:len]);
+func sendip(socket *net.UDPConn, client *net.UDPAddr, pktbyte []byte, length int) int {
+	order := binary.BigEndian.Uint16(pktbyte[:1])
+    pkt := string(pktbyte[2:length]);
     //print "ORDER : $order\n";
 	fmt.Printf("ORDER : %d", order)
     if (1 == order) {
@@ -114,36 +108,35 @@ func sendip(socket *UDPConn, client net.UDPAddr, pkt []bype, len int)
         fmt.Println ( "NTX : ",pkt);
         fmt.Println ("--------------------------");
         pkt = strings.ToLower(pkt)
-        spacecomp := regexp.Compile("\\s+")
-        argslist :=spacecomp.Split(pkt, 100)
-        sim_ntx(socker, client, argslist[0],argslist[1:]...);
-    }else if (0 == order) {    #config
+        spacecomp := regexp.MustCompile("\\s+")
+        argslist := spacecomp.Split(pkt, 100)
+        sim_ntx(socket, client, argslist[0],argslist[1:]...)
+    }else if (0 == order) {    //config
         //config_exe($client,split(/\s+/,$pkt));
      }else{
-        print "UNKNOW ORDER\n";
+        fmt.Printf("UNKNOW ORDER\n");
         return -1;
     }
     return 0;
 }
 
-
-var ntx_data map[string]intrface{}
+var ntx_data map[string]interface{};
 func sim_ntx_init() {
 	if ntx_data == nil {
-		ntx_data = make(map[string]intrface{})
+		ntx_data = make(map[string]interface{})
 	}
 }
 
-func sim_ntx(socket *UDPConn, client net.UDPAddr, order string , args []string) int {
-    data := argfrase(arg);
-    fmt.Printf("%-10s : %s\n", "FRASE ORDER", order;
+func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...string) int {
+    data := argfrase(args...);
+    fmt.Printf("%-10s : %s\n", "FRASE ORDER", order);
     if v,ok := data["object"];ok {
     	data["object"] = strings.TrimLeft(data["object"], ":")
     }
     for k,v := range data {
         fmt.Printf("\t%s = %s\n",k,v)
     }
-    var istring string = ""
+    istring  := ""
     
     if order == "helloserver" {
         istring = "hello client"; 
@@ -158,8 +151,9 @@ func sim_ntx(socket *UDPConn, client net.UDPAddr, order string , args []string) 
             fmt.Printf("%-10s%s\n","CreateHost NAME :",data["hostname"]);
             ntx_data[data["hostname"]] = data;
             vid := 0
-            if (v1,ok1 := data["hostname"];ok1 &&
-                v2,ok2 := ntx_data["port"]["vlanid"];ok2 ) {
+            v1,ok1 := data["hostname"]
+            v2,ok2 := ntx_data["port"]["vlanid"]
+            if ok1 && ok2 {
                 vid  = ntx_data["port"]["vlanid"]
                 port = ntx_data["port"]["object"]
             }
@@ -177,13 +171,13 @@ func sim_ntx(socket *UDPConn, client net.UDPAddr, order string , args []string) 
     return 0;
 }
 
-#**************************************************
-# 参数解析 order -s1 1 -s2 2 -s3
-#**************************************************
-func argfrase(args ...string) map[string] string
-{
+//**************************************************
+// 参数解析 order -s1 1 -s2 2 -s3
+//**************************************************
+func argfrase(args ...string) map[string]string{
     iswitch := make(map[string]string)
-    var key string = ""; var c bool = false
+    key := "" 
+    c := false
     //fmt.Printf("nill   :   %v\n", key)
     for _,v := range args {
         if ok,_ := regexp.MatchString(`^\s*$`,v);ok {
@@ -211,5 +205,15 @@ func argfrase(args ...string) map[string] string
             }
         }
     }
-    return iswitch;
+    return iswitch
+}
+
+func main() {
+	fmt.Printf("Init port %d.\n", *port)
+	fmt.Println("-----------------------")
+	if *cli {
+	    go cli_init(*port);
+	}
+	readloop(*port)
+	os.Exit(0)
 }

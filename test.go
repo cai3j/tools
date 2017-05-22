@@ -360,6 +360,21 @@ func ExeStr(args []string) error{
 	return nil
 }
 
+func ExeMap(args []string) error{
+	log.Printf("ExeMap : %v\n", args)
+	var map1 map[string]interface{}
+	var map2 map[string]interface{}
+	
+	map1 = make(map[string]interface{})
+	map2 = make(map[string]interface{})
+	map1["22"] = map2
+	map2["33"] = "vv"
+	fmt.Printf("Something  :  %v\n", map1["22"]["33"])
+	
+	
+	return nil
+}
+
 func ExeCli(args []string) {
 	log.Printf("ExeTest args : %v", args)
 	
@@ -393,6 +408,7 @@ func ExeUdps(args []string){
         IP:   net.IPv4(0, 0, 0, 0),
         Port: 9090,
     })
+	fmt.Printf("Socket type : %s\n", reflect.TypeOf(socket))
     if err != nil {
         fmt.Println("监听失败!", err)
         return
@@ -477,7 +493,9 @@ func main() {
 		case "regexp" :
 			ExeRegexp(flag.Args()[1:])
 		case "str" :
-			ExeStr(flag.Args()[1:])	
+			ExeStr(flag.Args()[1:])
+		case "map" :
+			ExeMap(flag.Args()[1:])
 		case "packet" :
 			ExePacket(flag.Args()[1:])	
 		case "udps":
