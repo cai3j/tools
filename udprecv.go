@@ -4,19 +4,19 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	//"reflect"
-	//"time"
+	_ "reflect"
+	_ "time"
 	"regexp"
 	"strings"
-	//"log"
+	_ "log"
 	"os"
-	//"os/exec"
+	_ "os/exec"
 	"bufio"
-	//"sync"
+	_ "sync"
 	"encoding/binary"
-    //"github.com/google/gopacket"
-	//"github.com/google/gopacket/layers"
-	//"github.com/google/gopacket/pcap"
+    _ "github.com/google/gopacket"
+	_ "github.com/google/gopacket/layers"
+	_ "github.com/google/gopacket/pcap"
 )
 
 type InterfaceInfo struct{
@@ -150,12 +150,13 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             port := data["object"]  //interface
             fmt.Printf("%-10s%s\n","CreateHost NAME :",data["hostname"]);
             ntx_data[data["hostname"]] = data;
-            vid := 0
+            vid := "0"
             v1,ok1 := data["hostname"]
-            v2,ok2 := ntx_data["port"]["vlanid"]
+            v2,ok2 := ntx_data["port"]
             if ok1 && ok2 {
-                vid  = ntx_data["port"]["vlanid"]
-                port = ntx_data["port"]["object"]
+            	portv2 := v2.(map[string]string) 
+                vid  = portv2["vlanid"]
+                port = portv2["object"]
             }
             if v1,ok1 := data["ipv4addr"];ok1 {
                 //tcpdump_arpd($port,$data{ipv4addr},$data{macaddr},$vid);
