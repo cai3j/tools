@@ -130,7 +130,7 @@ func sim_ntx_init() {
 func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...string) int {
     data := argfrase(args...);
     fmt.Printf("%-10s : %s\n", "FRASE ORDER", order);
-    if v,ok := data["object"];ok {
+    if _,ok := data["object"];ok {
     	data["object"] = strings.TrimLeft(data["object"], ":")
     }
     for k,v := range data {
@@ -141,29 +141,36 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
     if order == "helloserver" {
         istring = "hello client"; 
         ilen,err := socket.WriteToUDP([]byte(istring),client)
-        fmt.Printf("Send:%s(%d)\n",istring,ilen);
+        if err != nil {
+        	fmt.Printf("err : %s\n",err)
+        } else {
+        	fmt.Printf("Send:%s(%d)\n",istring,ilen);
+        }
+        
     }else if order == "createhost" || order == "createaccesshost" {
         //   port1Vlan1 CreateAccessHost -HostName Host1  -UpperLayer DualStack
         //   -Ipv6Addr 2013::1 -Ipv6Mask 64 
         //   -Ipv6LinkLocalAddr fe80::1 -Ipv4Addr 192.0.1.11
-        if v,ok := data["hostname"];ok {
+        if _,ok := data["hostname"];ok {
             port := data["object"]  //interface
             fmt.Printf("%-10s%s\n","CreateHost NAME :",data["hostname"]);
             ntx_data[data["hostname"]] = data;
-            vid := "0"
-            v1,ok1 := data["hostname"]
-            v2,ok2 := ntx_data["port"]
+            vid := ""
+            _,ok1 := data["hostname"]
+            _,ok2 := ntx_data["port"]
             if ok1 && ok2 {
-            	portv2 := v2.(map[string]string) 
+            	portv2 := ntx_data["port"].(map[string]string) 
                 vid  = portv2["vlanid"]
                 port = portv2["object"]
             }
-            if v1,ok1 := data["ipv4addr"];ok1 {
+            if _,ok1 := data["ipv4addr"];ok1 {
                 //tcpdump_arpd($port,$data{ipv4addr},$data{macaddr},$vid);
             }
-            if v1,ok1 = data["ipv6addr"];ok1 {
+            if _,ok1 = data["ipv6addr"];ok1 {
                 //tcpdump_arpd($port,$data{ipv6addr},$data{macaddr},$vid);
             }
+            _ = port
+            _ = vid
         }
 
     } else {
