@@ -362,6 +362,7 @@ func ExeStr(args []string) error{
 
 func mapret() map[string]string{
 	ret := make(map[string]string)
+	log.Printf("address : %p", &ret)
 	ret["a"] = "a1"
 	return ret
 }
@@ -376,13 +377,20 @@ func ExeMap(args []string) error{
 	map1["22"] = map2
 	map2["33"] = "vv"
 	kk := map1["22"].(map[string]interface{})
-	fmt.Printf("Something  :  %v(%s)\n", map1["22"],reflect.TypeOf(map1["22"]))
-	fmt.Printf("Something  :  %v(%s)\n",kk["33"],reflect.TypeOf(kk["33"]))
-	
+	//Something  :  map[33:vv](map[string]interface {})
+	fmt.Printf("Something  :  %v(%s)\n", map1["22"],reflect.TypeOf(map1["22"])) 
+	//Something  :  vv(string)
+	fmt.Printf("Something  :  %v(%s)\n",kk["33"],reflect.TypeOf(kk["33"]))     
 	map1["4a"] = mapret()
 	map4 := map1["4a"].(map[string]string)
+	log.Printf("address2 : %p", &map4)
+	//Something  :  a1(string)
 	fmt.Printf("Something  :  %v(%s)\n",map4["a"],reflect.TypeOf(map4["a"]))
 	
+	map5 := make(map[string]map[string]string)
+	map5["1"] = make(map[string]string)
+	map5["1"]["2"] = "3"
+	fmt.Printf("%v\n", map5)    //map[1:map[2:3]]
 	return nil
 }
 
