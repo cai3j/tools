@@ -495,7 +495,7 @@ func main() {
 	args := flag.Args()[1:]
 	log.Printf("Order : %v %+v", order, args)
 	fmt.Println("============================")
-	
+	otest := 3
 	switch order {
 		case "test" :
 			ExeTest(flag.Args()[1:])
