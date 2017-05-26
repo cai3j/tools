@@ -203,7 +203,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             fmt.Printf("Send:%s(%d)\n",str,ilen);
         }
     }else if order == "createsubint" { //创建子VLAN接口
-        if _,ok := data["subintname"] {
+        if _,ok := data["subintname"];ok {
             fmt.Printf("%-10s%s\n","CreateSubInt NAME :",data["subintname"])
             ntx_data[data["subintname"]] = data;
         }
@@ -211,7 +211,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["object"];ok {
             object := data["object"]
             fmt.Printf("%-10s%s\n","OBJECT     NAME :",object)
-            delete(data["object"])
+            delete(data,"object")
             for k1,v1 := range(data){
             	tmpv := ntx_data["object"].(map[string]string)
             	tmpv[k1] = v1
@@ -231,29 +231,32 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
     }else if order == "startcapture" {
         fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
-        eng = data["object"]
+        eng := data["object"]
         if _,ok := ntx_data[eng];ok {
-            if ntx_data[eng]["statype"] == "analysis" {
-                tcpdump_start(ntx_data[eng]["object"]); //在抓包引擎的接口上抓
+        	engv := ntx_data[eng].(map[string]string)
+            if engv["statype"] == "analysis" {
+                tcpdump_start(engv["object"]); //在抓包引擎的接口上抓
             }
         }
     }else if order == "stopcapture" {
         fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
-        eng = data["object"];
+        eng := data["object"];
         if _,ok := ntx_data[eng];ok {
-            if ntx_data[eng]["statype"] == "analysis" {
-                tcpdump_stop(ntx_data[eng]["object"]) //在抓包引擎的接口上停止
+        	engv := ntx_data[eng].(map[string]string)
+            if engv["statype"] == "analysis" {
+                tcpdump_stop(engv["object"]) //在抓包引擎的接口上停止
             }    
         }
     }else if order == "getcapturepacket" {
         if _,ok := ntx_data["packetindex"];ok {
             fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
             fmt.Printf("%-10s%s\n","PacketIndex        :",data["packetindex"])
-            eng = data["object"];
-            str = tcpdump_get(ntx_data[eng]["object"],data["packetindex"]);
-            if nil != str {
-                ilen,_ := socket.WriteToUDP([]byte(str),client)    
-	            fmt.Printf("Send:OK:%s(%d)\n",str,ilen)
+            eng := data["object"];
+            engv := ntx_data[eng].(map[string]string)
+            istring := tcpdump_get(engv["object"],data["packetindex"]);
+            if nil != istring {
+                ilen,_ := socket.WriteToUDP([]byte(istring),client)    
+	            fmt.Printf("Send:OK:%s(%d)\n",istring,ilen)
             } else {
 	            ilen,_ := socket.WriteToUDP([]byte("ERROR"),client)    
 	            fmt.Printf("Send:ERROR(%d)\n",ilen);
@@ -273,7 +276,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         }
     }else if order == "destoryfilter" {
         if _,ok := data["filtername"];ok {
-            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]; // port
+            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // port
             fmt.Printf("%-10s%s\n","filtername NAME :",data["filtername"])
             delete(ntx_data,data["trafficname"])
         }
@@ -299,7 +302,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             fmt.Printf("%-10s%s\n","OBJECT NAME :",staEngine)
             fmt.Printf("%-10s%s\n","Stream NAME :",streamname)
             t,r := tcpdump_stat(port,streamname)
-            istring = fmt.sprintf("GetStreamStats TxFrames = %d , RxFrames = %d",t,r)
+            istring = fmt.Sprintf("GetStreamStats TxFrames = %d , RxFrames = %d",t,r)
         } else {
             istring = "GetStreamStats Error";
         }
@@ -319,7 +322,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["name"];ok {
             fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"])
             ntx_data[data["name"]] = data;
-            //%{$ntx_data{$data{'name'}}{testorder}} = ();  //创建新的profile，将删除testorder信息
+            //%{$ntx_data{$data{"name"}}{testorder}} = ();  //创建新的profile，将删除testorder信息
         }
     }else if order == "destroyprofile" {
         if _,ok := data["name"];ok {
@@ -335,62 +338,64 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["pduname"];ok { //HexString 是具体的报文内容
             fmt.Printf("%-10s%s\n","CreateCustomPkt NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]['typel3"] = "pkt"
+            ntx_data[data["pduname"]]["typel3"] = "pkt"
         }
     }else if order == "createethheader" {
         if _,ok := data["pduname"];ok {
         	pdu := data["pduname"]
             fmt.Printf("%-10s%s\n","CreateEthHeader NAME :",data["pduname"])
             ntx_data[pdu] = data;
-            ntx_data[pdu]["typel2"] = 'eth';
+            ntx_data[pdu]["typel2"] = "eth"
         }
     }else if order == "createvlanheader" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateVlanHeader NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]["typevlan"] = 'vlan'
+            ntx_data[data["pduname"]]["typevlan"] = "vlan"
         }
     }else if order == "createipv4header" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateIPV4Header NAME :",data["pduname"])
-            ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]['TypeL3'] = 'ipv4';
+            ntx_data[data["pduname"]] = data
+            ntx_data[data["pduname"]]["TypeL3"] = "ipv4"
         }
     }else if order == "createipv6header" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateIPV6Header NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]]['typel3"] = 'ipv6';
+            ntx_data[data["pduname"]]["typel3"] = "ipv6"
         }
     }else if order == "createudpheader" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateUDPHeader NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]]['typel4"]  = 'udp';
+            ntx_data[data["pduname"]]["typel4"]  = "udp";
         }
     }else if order == "createtcpheader" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateTCPHeader NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]]['typel4'] = 'tcp';
+            ntx_data[data["pduname"]]["typel4"] = "tcp"
         }
     }else if order == "createicmppkt" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateICMPPkt NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]["typel4"] = 'icmp'
+            ntx_data[data["pduname"]]["typel4"] = "icmp"
             
-            if _,ok = ntx_data[data["pduname"]["type"];ok {
+            if _,ok = ntx_data[data["pduname"]]["type"];ok {
                 ntx_data[data["pduname"]]["icmptype"] = ntx_data[data["pduname"]]["type"]
             }
         }
     }else if order == "createstream" {
         //object 是port
-        if (exists $data{'streamname'} && exists $data{profilename}) {
-            stream = $data{'streamname'};
-            fmt.Printf("%-10s%s\n","CreateStream NAME :",$stream;
-            if (exists $ntx_data{$stream}){ //如果stream已经存在， 就清除计数
-                tcpdump_clearstatics($stream);
+        _,ok1 := data["streamname"]
+        _,ok2 := data["profilename"]
+        if (ok1 && ok2) {
+            stream := data["streamname"]
+            fmt.Printf("%-10s%s\n","CreateStream NAME :",stream)
+            if _,ok := ntx_data[stream];ok { //如果stream已经存在， 就清除计数
+                tcpdump_clearstatics(stream)
             }
             
             ntx_data[stream] = data;
@@ -402,12 +407,12 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             stream = data["streamname"]
             fmt.Printf("%-10s%s\n","CreateStream NAME :",stream)
             for k,v := range(data) {
-                ntx_data[stream][k = v
+                ntx_data[stream][k] = v
             }
         }
     }else if order == "destroystream" {
         if _,ok := data["streamname"];ok {
-            fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"];
+            fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"])
             stream = data["streamname"]
            
             if _,ok = ntx_data[stream];ok {
@@ -441,7 +446,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
 		            streamlist = append(streamlist,v)
             	}
             }
-            f (len(streamlist) > 0) {
+            if (len(streamlist) > 0) {
                 profile = ntx_findprofile(streamlist[0])
             }
         } else if _,ok := data["streamlist"];ok {
@@ -468,11 +473,12 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
                     tcpdump_clearstatics(stream);
                 }
             }
-            sleep 1;
+            //sleep 1;
          }
 
-        ntx_startstream($port,@streamlist)
-    }else if order == "stoptraffic" {
+        ntx_startstream(port,streamlist)
+        
+    } else if order == "stoptraffic" {
         port = data["object"];
         profile = undef
         streamlist = make([]string,0)
@@ -503,14 +509,14 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         
         ntx_stopstream(port,streamlist)
     }else if order == "createtestport" {
-        if_,ok := data["portname"];ok {
+        if _,ok := data["portname"];ok {
         	data[portname] = strings.TrimLeft(data[portname],":")
             ntx_int_init(&data);
         }
     }else if order == "cleanuptest" {
         //无法删除线程，暂不清除port
-        for port,_ := eachinterface {
-        	portinfo = interface[port]
+        for port,_ := range(intf) {
+        	portinfo := intf[port]
         	if _,ok := portinfo["object"];ok {
 	        	continue
         	}
@@ -520,11 +526,11 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         fmt.Printf("Clean all -- Not support\n")
     }else if order == "resetsession" {
         if _,ok := data["object"];ok {
-            printf "%-10s%s\n","ResetSession  :", data["object"])
+            fmt.Printf("%-10s%s\n","ResetSession  :", data["object"])
             DPrint("------ResetSession--before--")
-            DPrint(&ntx_data,&interface)
-            //str = `ps -ef | grep udpr`;
-            //DPrint($str);
+            DPrint(&ntx_data,&intf)
+            //str = `ps -ef | grep udpr`
+            //DPrint($str)
             DPrint("------ResetSession----------");
             ntx_stopstream();
             ntx_int_reset(&data);
