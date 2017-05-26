@@ -355,8 +355,16 @@ func ExeStr(args []string) error{
 	var str2 string = "123"
 	fmt.Printf("Compare %v\n",strings.Compare(str1, str2))
 	fmt.Printf("A + B =  %v\n",str1+str2)
+	fmt.Printf("%s\n",strings.TrimLeft(":2324", ":"))
 	
-	
+	return nil
+}
+
+func ExeList(args []string) error{
+	log.Printf("ExeList : %v\n", args)
+	var ilist []int
+	ilist = append(ilist,1,2,3)
+	fmt.Printf("%v\n", ilist)
 	return nil
 }
 
@@ -503,7 +511,6 @@ func main() {
 	args := flag.Args()[1:]
 	log.Printf("Order : %v %+v", order, args)
 	fmt.Println("============================")
-	otest := 3
 	switch order {
 		case "test" :
 			ExeTest(flag.Args()[1:])
@@ -515,6 +522,8 @@ func main() {
 			ExeStr(flag.Args()[1:])
 		case "map" :
 			ExeMap(flag.Args()[1:])
+		case "list" :
+			ExeList(flag.Args()[1:])
 		case "packet" :
 			ExePacket(flag.Args()[1:])	
 		case "udps":
