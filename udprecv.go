@@ -217,214 +217,215 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             	tmpv[k1] = v1
             }
         }
-   }else if order == "createstaengine" { #创建统计引擎
+   }else if order == "createstaengine" { //创建统计引擎
         if _,ok := data["staenginename"];ok {
-            fmt.Printf("%-10s%s\n","OBJECT        NAME :",$data{object}; # PORT信息
-            fmt.Printf("%-10s%s\n","CreateProfile NAME :",$data{'staenginename'};
-            fmt.Printf("%-10s%s\n","StaType NAME :",$data{'statype'};
-            %{$ntx_data{$data{'staenginename'}}} = %data;
-            if ($data{statype} ne "analysis") {
-                tcpdump_creat($data{object});
+            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // PORT信息
+            fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["staenginename"])
+            fmt.Printf("%-10s%s\n","StaType NAME :",data["statype"]
+            ntx_data[data["staenginename"]] = data;
+            if data["statype"] != "analysis" {
+                tcpdump_creat(data["object"]);
             }            
         }
-    }elsif($order eq 'configcapturemode'){
-        fmt.Printf("%-10s%s\n","OBJECT        NAME :",$data{object}; # engen
-    }elsif($order eq 'startcapture'){
-        fmt.Printf("%-10s%s\n","OBJECT        NAME :",$data{object}; # engen
-        my $eng = $data{object};
-        if (exists $ntx_data{$eng}) {
-            if ($ntx_data{$eng}{statype} eq "analysis") {
-                tcpdump_start($ntx_data{$eng}{object}); #在抓包引擎的接口上抓
+    }else if order == "configcapturemode" {
+        fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
+    }else if order == "startcapture'){
+        fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
+        eng = data["object"]
+        if _,ok := ntx_data[eng];ok {
+            if ntx_data[eng]["statype"] == "analysis" {
+                tcpdump_start($ntx_data{$eng}["object"]); //在抓包引擎的接口上抓
             }
         }
-    }elsif($order eq 'stopcapture'){
-        fmt.Printf("%-10s%s\n","OBJECT        NAME :",$data{object}; # engen
-        my $eng = $data{object};
-        if (exists $ntx_data{$eng}) {
-            if ($ntx_data{$eng}{statype} eq "analysis") {
-                tcpdump_stop($ntx_data{$eng}{object}); #在抓包引擎的接口上停止
+    }else if order == "stopcapture" {
+        fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
+        eng = data["object"];
+        if _,ok := ntx_data[eng];ok {
+            if ntx_data[eng]["statype"] == "analysis" {
+                tcpdump_stop(ntx_data[eng]["object"]) //在抓包引擎的接口上停止
             }    
         }
-    }elsif($order eq 'getcapturepacket'){
-        if (exists $data{'packetindex'}) {
-            fmt.Printf("%-10s%s\n","OBJECT        NAME :",$data{object}; # engen
-            fmt.Printf("%-10s%s\n","PacketIndex        :",$data{'packetindex'};
-            my $eng = $data{object};
-            my $str = tcpdump_get($ntx_data{$eng}{object},$data{'packetindex'});
-            if (defined $str) {
-                my $len = send(SERVER,"OK:$str",0,$client);
-                print "Send:OK:$str($len)\n";
+    }else if order == "getcapturepacket" {
+        if _,ok := ntx_data["packetindex"];ok {
+            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // engen
+            fmt.Printf("%-10s%s\n","PacketIndex        :",data["packetindex"])
+            eng = data["object"];
+            str = tcpdump_get(ntx_data[eng]["object"],data["packetindex"]);
+            if nil != str {
+                ilen,_ := socket.WriteToUDP([]byte(str),client)    
+	            fmt.Printf("Send:OK:%s(%d)\n",str,ilen)
             } else {
-                my $len = send(SERVER,"ERROR",0,$client);
-                print "Send:ERROR($len)\n";
+	            ilen,_ := socket.WriteToUDP([]byte("ERROR"),client)    
+	            fmt.Printf("Send:ERROR(%d)\n",ilen);
             }
         }
-    }elsif($order eq 'createfilter'){
-        if (exists $data{'filtername'}) {
-            printf "%-10s%s\n","OBJECT        NAME :",$data{object}; # port
-            printf "%-10s%s\n","filtername NAME :",$data{'filtername'};
-            %{$ntx_data{$data{'trafficname'}}} = %data;
+    }else if order == "createfilter" {
+        if _,ok := data["filtername"];ok {
+            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"])    // port
+            fmt.Printf("%-10s%s\n","filtername NAME :",$data{'filtername'})
+            ntx_data[data["trafficname"]] = data;
         }
-    }elsif($order eq 'configfilter'){
-        if (exists $data{'filtername'}) {
-            printf "%-10s%s\n","OBJECT        NAME :",$data{object}; # port
-            printf "%-10s%s\n","filtername NAME :",$data{'filtername'};
-            %{$ntx_data{$data{'trafficname'}}} = %data;
+    }else if order == "configfilter" {
+        if _,ok := data["filtername"];ok {
+            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]) // port
+            fmt.Printf("%-10s%s\n","filtername NAME :",data["filtername"])
+            ntx_data[data["trafficname"]] = data;
         }
-    }elsif($order eq 'destoryfilter'){
-        if (exists $data{'filtername'}) {
-            printf "%-10s%s\n","OBJECT        NAME :",$data{object}; # port
-            printf "%-10s%s\n","filtername NAME :",$data{'filtername'};
-            delete $ntx_data{$data{'trafficname'}};
+    }else if order == "destoryfilter" {
+        if _,ok := data["filtername"];ok {
+            fmt.Printf("%-10s%s\n","OBJECT        NAME :",data["object"]; // port
+            fmt.Printf("%-10s%s\n","filtername NAME :",data["filtername"])
+            delete(ntx_data,data["trafficname"])
         }
-    }elsif($order eq 'createtraffic'){
-        if (exists $data{'trafficname'}) {
-            printf "%-10s%s\n","CreateTraffic NAME :",$data{'trafficname'};
-            %{$ntx_data{$data{'trafficname'}}} = %data;
+    }else if order == "createtraffic" {
+        if _,ok := data["trafficname"];ok {
+            fmt.Printf("%-10s%s\n","CreateTraffic NAME :",data["trafficname"])
+            ntx_data[data["trafficname"]] = data;
         }
-    }elsif($order eq 'getportstats'){
-        my $string = undef;
-        my $staEngine = $data{object}; #引擎名称
-        my $port = $ntx_data{$staEngine}{object};
-        my ($t,$r,$ts,$rs) = tcpdump_stat($port);
-        $string = "GetPortStats TxFrames = $t , RxFrames = $r , rxsignature = $rs , txsignature = $ts";
-        my $len = send(SERVER,$string,0,$client);
-        print "Send:$string($len)\n";
-    }elsif($order eq 'getstreamstats'){
-        my $string = undef;
-        if (exists $data{'streamname'}) {
-            my $staEngine = $data{object};        #引擎名称
-            my $streamname = $data{'streamname'}; #流名称
-            my $port = $ntx_data{$staEngine}{object};
-            printf "%-10s%s\n","OBJECT NAME :",$staEngine;
-            printf "%-10s%s\n","Stream NAME :",$streamname;
-            my ($t,$r) = tcpdump_stat($port,$streamname);
-            $string = "GetStreamStats TxFrames = $t , RxFrames = $r";
+    }else if order == "getportstats" {
+        string = undef;
+        staEngine = data["object"]; //引擎名称
+        port = $ntx_data{$staEngine}["object"];
+        t,r,ts,rs := tcpdump_stat(port);
+        istring = fmt.Sprintf("GetPortStats TxFrames = %d , RxFrames = %d , rxsignature = %d , txsignature = %d",t,r,rs,ts)
+        ilen = send(SERVER,$string,0,$client);
+        fmt.Printf("Send:$string($ilen)\n";
+    }else if order == "getstreamstats" {
+        istring = undef;
+        if _,ok := data["streamname"];ok {
+            staEngine = data["object"];        //引擎名称
+            streamname = data["streamname"] //流名称
+            port = ntx_data[staEngine]["object"]
+            fmt.Printf("%-10s%s\n","OBJECT NAME :",staEngine)
+            fmt.Printf("%-10s%s\n","Stream NAME :",streamname)
+            t,r := tcpdump_stat(port,streamname)
+            istring = fmt.sprintf("GetStreamStats TxFrames = %d , RxFrames = %d",t,r)
         } else {
-            $string = "GetStreamStats Error";
+            istring = "GetStreamStats Error";
         }
-        my $len = send(SERVER,$string,0,$client);
-        print "Send:$string($len)\n";
-    }elsif($order eq 'createprofile'){
-        #Input: 1. args:参数列表，可包含如下参数
-        #  (1) -Name Name 必选参数,Profile的名字
-        #  (2) -Type Type 可选参数,Constant Burst
-        #  (3) -TrafficLoad StreamLoad 可选参数，数据流发送的速率，如 -StreamLoad 1000
-        #  (4) -TrafficLoadUnit TrafficLoadUnit 可选参数，数据流发送的速率单位，如 -TrafficLoadUnit fps
-        #  (5) -BurstSize BurstSize, 可选参数，Burst中连续发送的报文数量
-        #  (6) -FrameNum FrameNum, 可选参数，一次发送报文的数量
-        #  (7) -Blocking blocking, 堵塞模式，Enable/Disable
-        #  (8) -DistributeMode DistributeMode
-        if (exists $data{'name'}) {
-            printf "%-10s%s\n","CreateProfile NAME :",$data{'name'};
-            %{$ntx_data{$data{'name'}}} = %data;
-            #%{$ntx_data{$data{'name'}}{testorder}} = ();  #创建新的profile，将删除testorder信息
+        ilen = send(SERVER,$string,0,$client);
+        fmt.Printf("Send:$string(ilen)\n";
+    }else if order == "createprofile" {
+        //Input: 1. args:参数列表，可包含如下参数
+        //  (1) -Name Name 必选参数,Profile的名字
+        //  (2) -Type Type 可选参数,Constant Burst
+        //  (3) -TrafficLoad StreamLoad 可选参数，数据流发送的速率，如 -StreamLoad 1000
+        //  (4) -TrafficLoadUnit TrafficLoadUnit 可选参数，数据流发送的速率单位，如 -TrafficLoadUnit fps
+        //  (5) -BurstSize BurstSize, 可选参数，Burst中连续发送的报文数量
+        //  (6) -FrameNum FrameNum, 可选参数，一次发送报文的数量
+        //  (7) -Blocking blocking, 堵塞模式，Enable/Disable
+        //  (8) -DistributeMode DistributeMode
+        if _,ok := data["name"];ok {
+            fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"])
+            ntx_data[data["name"]] = data;
+            //%{$ntx_data{$data{'name'}}{testorder}} = ();  //创建新的profile，将删除testorder信息
         }
-    }elsif($order eq 'destroyprofile'){
-        if (exists $data{'name'}) {
-            printf "%-10s%s\n","CreateProfile NAME :",$data{'name'};
-            my $profile = $data{'name'};
-            if (exists $ntx_data{$profile}) {
-                my @streamlist = ntx_findstream($profile);
-                ntx_stopstream($port,@streamlist);
-                delete $ntx_data{$profile};
+    }else if order == "destroyprofile" {
+        if _,ok := data["name"];ok {
+            fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"])
+            profile = $data{'name'};
+            if _,ok := ntx_data["profile"] {
+                streamlist = ntx_findstream($profile);
+                ntx_stopstream(port,streamlist);
+                delete(ntx_data,profile)
             }
         }
-    }elsif($order eq 'createcustompkt'){
-        if (exists $data{'pduname'}) { #HexString 是具体的报文内容
-            printf "%-10s%s\n","CreateCustomPkt NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typel3'} = 'pkt';
+    }else if order == "createcustompkt" {
+        if _,ok := data["pduname"];ok { //HexString 是具体的报文内容
+            fmt.Printf("%-10s%s\n","CreateCustomPkt NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data;
+            ntx_data[data["pduname"]]['typel3"] = "pkt";
         }
-    }elsif($order eq 'createethheader'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateEthHeader NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typel2'} = 'eth';
+    }else if order == "createethheader" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateEthHeader NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data;
+            ntx_data[data["pduname"]]["typel2"] = 'eth';
         }
-    }elsif($order eq 'createvlanheader'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateVlanHeader NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typevlan'} = 'vlan';
+    }else if order == "createvlanheader" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateVlanHeader NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data;
+            ntx_data[data["pduname"]]["typevlan"] = 'vlan';
         }
-    }elsif($order eq 'createipv4header'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateIPV4Header NAME :",$data{'pduname'};
+    }else if order == "createipv4header" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateIPV4Header NAME :",data["pduname"])
             %{$ntx_data{$data{'pduname'}}} = %data;
             $ntx_data{$data{'pduname'}}{'TypeL3'} = 'ipv4';
         }
-    }elsif($order eq 'createipv6header'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateIPV6Header NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typel3'} = 'ipv6';
+    }else if order == "createipv6header" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateIPV6Header NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data;
+            ntx_data[data["pduname"]]['typel3"] = 'ipv6';
         }
-    }elsif($order eq 'createudpheader'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateUDPHeader NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typel4'} = 'udp';
+    }else if order == "createudpheader" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateUDPHeader NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data;
+            ntx_data[data["pduname"]]['typel4"]  = 'udp';
         }
-    }elsif($order eq 'createtcpheader'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateTCPHeader NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typel4'} = 'tcp';
+    }else if order == "createtcpheader" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateTCPHeader NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data;
+            ntx_data[data["pduname"]]['typel4'] = 'tcp';
         }
-    }elsif($order eq 'createicmppkt'){
-        if (exists $data{'pduname'}) {
-            printf "%-10s%s\n","CreateICMPPkt NAME :",$data{'pduname'};
-            %{$ntx_data{$data{'pduname'}}} = %data;
-            $ntx_data{$data{'pduname'}}{'typel4'} = 'icmp';
-            if (exists $ntx_data{$data{'pduname'}}{'type'}) {
-                $ntx_data{$data{'pduname'}}{'icmptype'} = $ntx_data{$data{'pduname'}}{'type'};
+    }else if order == "createicmppkt" {
+        if _,ok := data["pduname"];ok {
+            fmt.Printf("%-10s%s\n","CreateICMPPkt NAME :",data["pduname"])
+            ntx_data[data["pduname"]] = data
+            ntx_data[data["pduname"]]["typel4"] = 'icmp'
+            
+            if _,ok = ntx_data[data["pduname"]["type"];ok {
+                ntx_data[data["pduname"]]["icmptype"] = ntx_data[data["pduname"]]["type"]
             }
         }
-    }elsif($order eq 'createstream'){
-        #object 是port
+    }else if order == "createstream" {
+        //object 是port
         if (exists $data{'streamname'} && exists $data{profilename}) {
-            my $stream = $data{'streamname'};
-            printf "%-10s%s\n","CreateStream NAME :",$stream;
-            if (exists $ntx_data{$stream}){ #如果stream已经存在， 就清除计数
+            stream = $data{'streamname'};
+            fmt.Printf("%-10s%s\n","CreateStream NAME :",$stream;
+            if (exists $ntx_data{$stream}){ //如果stream已经存在， 就清除计数
                 tcpdump_clearstatics($stream);
             }
             
             %{$ntx_data{$stream}} = %data;
         }
-    }elsif($order eq 'configstream'){
+    }else if order == "configstream" {
         if (exists $data{'streamname'} && exists $ntx_data{$data{'streamname'}}) {
-            my $stream = $data{'streamname'};
-            printf "%-10s%s\n","CreateStream NAME :",$stream;
-            foreach my $k(keys %data) {
+            stream = $data{'streamname'};
+            fmt.Printf("%-10s%s\n","CreateStream NAME :",$stream;
+            foreach k(keys %data) {
                 $ntx_data{$stream}{$k} = $data{$k}
             }
         }
-    }elsif($order eq 'destroystream'){
+    }else if order == "destroystream" {
         if (exists $data{'streamname'}) {
-            printf "%-10s%s\n","CreateProfile NAME :",$data{'name'};
-            my $stream = $data{'streamname'};
+            fmt.Printf("%-10s%s\n","CreateProfile NAME :",$data{'name'};
+            stream = $data{'streamname'};
             if (exists $ntx_data{$stream}) {
                 ntx_stopstream($port,$stream);
                 delete $ntx_data{$stream};
             }
         }
-    }elsif($order eq 'addpdu'){
-        #stream name : testorder
-        if (exists $data{'pduname'} && exists $data{object}) {
-            my $stream  = $data{object};
-            printf "%-10s%s\n","Stream NAME  :",$stream;
-            printf "%-10s%s\n","AddPdu       :",$data{'pduname'};
+    }else if order == "addpdu" {
+        //stream name : testorder
+        if (exists $data{'pduname'} && exists data["object"]) {
+            stream  = data["object"];
+            fmt.Printf("%-10s%s\n","Stream NAME  :",$stream;
+            fmt.Printf("%-10s%s\n","AddPdu       :",$data{'pduname'};
             $ntx_data{$stream}{'addpdu'} = $data{'pduname'};        
         }       
     
-    }elsif($order eq 'starttraffic'){
-        my $port = $data{object};
-        my $profile = undef
+    }else if order == "starttraffic" {
+        port = data["object"];
+        profile = undef
         my @streamlist = ();
-        my $onlyport = 0;
-        if (exists $data{streamnamelist}) { #streamnamelist = {stream11 stream12}
-            my $info = $data{streamnamelist};
+        onlyport = 0;
+        if (exists $data{streamnamelist}) { //streamnamelist = {stream11 stream12}
+            info = $data{streamnamelist};
             if ($info =~ /{(.*)}/){
                 $info = $1;
             }
@@ -444,15 +445,15 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             $onlyport = 1;
         }
         
-        printf "%-10s%s\n","OBJECT NAME  :",$port;
-        printf "%-10s%s\n","Profile NAME :",$profile;
-        printf "%-10s%s\n","ClearStatistic :",$data{clearstatistic};
+        fmt.Printf("%-10s%s\n","OBJECT NAME  :",$port;
+        fmt.Printf("%-10s%s\n","Profile NAME :",$profile;
+        fmt.Printf("%-10s%s\n","ClearStatistic :",$data{clearstatistic};
         
          if(not exists $data{clearstatistic} || (exists $data{clearstatistic} && $data{clearstatistic} == 1)){
             if ($onlyport) {
                 tcpdump_clearstatics("?ALL");
             } else {
-                foreach my $stream(@streamlist){ 
+                foreach stream(@streamlist){ 
                     tcpdump_clearstatics($stream);
                 }
             }
@@ -460,12 +461,12 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
          }
 
         ntx_startstream($port,@streamlist)
-    }elsif($order eq 'stoptraffic'){
-        my $port = $data{object};
-        my $profile = undef
+    }else if order == "stoptraffic" {
+        port = data["object"];
+        profile = undef
         my @streamlist = ();
-        if (exists $data{streamnamelist}) { #streamnamelist = {stream11 stream12}
-            my $info = $data{streamnamelist};
+        if (exists $data{streamnamelist}) { //streamnamelist = {stream11 stream12}
+            info = $data{streamnamelist};
             if ($info =~ /{(.*)}/){
             $info = $1;
             }
@@ -484,30 +485,33 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             @streamlist = ntx_findstreamByPort($port);
         }
 
-        printf "%-10s%s\n","OBJECT NAME  :",$port;
-        printf "%-10s%s\n","Profile NAME :",$profile;
+        fmt.Printf("%-10s%s\n","OBJECT NAME  :",$port;
+        fmt.Printf("%-10s%s\n","Profile NAME :",$profile;
         
         ntx_stopstream($port,@streamlist)
-    }elsif($order eq 'createtestport'){
+    }else if order == "createtestport" {
         if(exists $data{portname}) {
-            $data{portname} =~ s/\:\://g;
-            ntx_int_init(%data);
+            data[portname] =~ s/\:\://g;
+            ntx_int_init(&data);
         }
-    }elsif($order eq 'cleanuptest'){
-        #无法删除线程，暂不清除port
-        foreach my $port(keys %interface) {
-            next if (not exists $interface{$port}{object});
-            DPrint("Delete port $port obj $interface{$port}{object}");
-            delete $interface{$port}{object};
+    }else if order == "cleanuptest" {
+        //无法删除线程，暂不清除port
+        for port,_ := eachinterface {
+        	portinfo = interface[port]
+        	if _,ok := portinfo["object"];ok {
+	        	continue
+        	}
+            fmt.Printf("Delete port %s obj %s",port,portinfo["object"]);
+            delete(portinfo,"object")
         }
-        print "Clean all -- Not support\n";
-    }elsif($order eq 'resetsession'){
-        if(exists $data{object}) {
-            printf "%-10s%s\n","ResetSession  :", $data{object};
+        fmt.Printf("Clean all -- Not support\n";
+    }else if order == "resetsession" {
+        if _,ok := data["object"];ok {
+            printf "%-10s%s\n","ResetSession  :", data["object"];
             DPrint("------ResetSession--before--");
             DPrint(\%ntx_data,\%interface);
-            #my $str = `ps -ef | grep udpr`;
-            #DPrint($str);
+            //str = `ps -ef | grep udpr`;
+            //DPrint($str);
             DPrint("------ResetSession----------");
             ntx_stopstream();
             ntx_int_reset(%data);
