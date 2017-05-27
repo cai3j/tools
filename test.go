@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"time"
 	"regexp"
 	"strings"
@@ -353,10 +354,12 @@ func ExeStr(args []string) error{
 	log.Printf("strFun : %v\n", args)
 	var str1 string = "123"
 	var str2 string = "123"
+	var int1 int = 123
+	_ = int1
 	fmt.Printf("Compare %v\n",strings.Compare(str1, str2))
 	fmt.Printf("A + B =  %v\n",str1+str2)
 	fmt.Printf("%s\n",strings.TrimLeft(":2324", ":"))
-	
+	fmt.Printf("string(1) ::: %s\n",strconv.FormatBool(true))
 	return nil
 }
 

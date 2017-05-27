@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"strconv"
 	_ "reflect"
 	_ "time"
 	"regexp"
@@ -120,20 +121,22 @@ func sendip(socket *net.UDPConn, client *net.UDPAddr, pktbyte []byte, length int
     return 0;
 }
 
-func tcpdump_creat() {
-	
+func tcpdump_creat(i string) {
+	_ = i
 }
-func tcpdump_start() {
-	
+func tcpdump_start(i string) {
+	_ = i
 }
-func tcpdump_stop() {
-	
+func tcpdump_stop(i string) {
+	_ = i
 }
-func tcpdump_get() {
-	
+func tcpdump_get(i string, num string)string {
+	_ = i
+	return ""
 }
-func tcpdump_stat() {
-	
+func tcpdump_stat(i string)string {
+	_ = i
+	return ""
 }
 
 var ntx_data map[string]interface{};
@@ -194,7 +197,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             fmt.Printf("%-10s%s\n","OBJECT     NAME :",object)
             if _,ok := ntx_data["object"];ok {
                 host := ntx_gethostinfo(object)
-                host_sendarp(&host);
+                host_sendarp(&host,"");
             }
         }
     }else if order == "ping" {
@@ -208,11 +211,11 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             if (ok1 && ok2) {
                 host := ntx_gethostinfo(object)
                 if _,ok1 = data["result"];!ok1 {
-                    str = host_ping(&host,&data);
-                    str = "OK:" + str
+                    result := host_ping(&host,&data)
+                    str = "OK:" + strconv.FormatBool(result)
                 }else{
                     str = host_pingresult(&host,&data);
-                    str = "OK:" + "$str";
+                    str = "OK:" + str
                 }
             }
             ilen,_ := socket.WriteToUDP([]byte(str),client)    
@@ -270,7 +273,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             eng := data["object"];
             engv := ntx_data[eng].(map[string]string)
             istring := tcpdump_get(engv["object"],data["packetindex"]);
-            if nil != istring {
+            if "" != istring {
                 ilen,_ := socket.WriteToUDP([]byte(istring),client)    
 	            fmt.Printf("Send:OK:%s(%d)\n",istring,ilen)
             } else {
@@ -568,6 +571,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
 //#-porttype ETHERNET
 //#-object CHASSIS1
 func ntx_int_init (iinterface *map[string]interface{}) {
+	_ = iinterface
 /*    my (%int) = @_;
     my $port = $int{portname};
     return if (not defined $port) ;
@@ -609,6 +613,7 @@ func ntx_int_init (iinterface *map[string]interface{}) {
 //#重置 CHASSIS1
 //#-object CHASSIS1
 func ntx_int_reset(iinterface *map[string]interface{}) {
+	_ = iinterface
 /*    my (%int) = @_;
     my $object = $int{object};
     foreach my $port(keys %interface) {
@@ -624,6 +629,7 @@ func ntx_int_reset(iinterface *map[string]interface{}) {
 }
 //#根据stream找profile
 func ntx_findprofile (stream string) map[string]string {
+	_ = stream
 /*    my $stream = shift;
     our %ntx_data;
     foreach(keys %ntx_data){
@@ -639,6 +645,7 @@ func ntx_findprofile (stream string) map[string]string {
 
 //#根据profile找到所属的stream
 func ntx_findstream(profile string) []string {
+	_ = profile
 /*    my $profile = shift;
     our %ntx_data;
     my @stream = ();
@@ -656,6 +663,7 @@ func ntx_findstream(profile string) []string {
 
 // #根据port找到所属的stream
 func ntx_findstreamByPort(port string) []string {
+	_ = port
     /*my $port = shift;
     our %ntx_data;
     my @stream = ();
@@ -681,6 +689,8 @@ func ntx_findstreamByPort(port string) []string {
 }
 
 func ntx_startstream(port string,streamlist []string){
+	_ = port
+	_ = streamlist
 /*    my($port,@streamlist) = @_;
     our %ntx_data;
     if (@streamlist <= 0) {
@@ -750,6 +760,8 @@ func ntx_startstream(port string,streamlist []string){
 }
 
 func ntx_stopstreamntx_startstream(port string,streamlist []string){
+	_ = port
+	_ = streamlist
    /* my($port,@streamlist) = @_;
     our %ntx_data;
     if (@streamlist <= 0) {
@@ -772,7 +784,10 @@ func ntx_stopstreamntx_startstream(port string,streamlist []string){
     }*/
 }
 
-func ntx_gethostinfo(hostname string){
+func ntx_gethostinfo(hostname string) map[string]string {
+	_ = hostname
+	host := make(map[string]string)
+	
  /*   my ($hostname) = @_;
     our %ntx_data;
     my %host = %{$ntx_data{$hostname}};
@@ -785,13 +800,14 @@ func ntx_gethostinfo(hostname string){
         }
         $port = $ntx_data{$port}{object};  #是子接口，就换成实接口
     }
-    $host{port} = $port;
-    return %host;*/
+    $host{port} = $port;*/
+    return host;
 }
 
 
 //#获取stream的pdu信息
 func ntx_getpdu(stream string){
+	_ = stream
   /*  my $stream = shift;
     our %ntx_data;
     my %pdudata;
@@ -824,6 +840,7 @@ func ntx_getpdu(stream string){
 //# 转换NTX指令为内部指令
 //#**************************************************
 func ntx_getinfo(data *map[string]string){
+	_ = data 
     /*my (%data) = @_;
     my %info = ();
     our %ntx_data;
@@ -910,7 +927,9 @@ func ntx_getinfo(data *map[string]string){
     return %info; */
 }
 //#学习ARP
-func host_sendarp(host string,destip string){
+func host_sendarp(host *map[string]string,destip string){
+	_ = host
+	_ = destip
 /*    my ($host,$destip) = @_;
     my $port = $$host{port};
     my $arp;
@@ -927,6 +946,9 @@ func host_sendarp(host string,destip string){
 
 //#获取mac， 无目的ip，取网关mac
 func host_getmac(arplist []string,host string, destip string){
+	_ = arplist
+	_ = host
+	_ = destip
    /* my ($arplist,$host,$destip) = @_;
     my $port = $$host{port};
     my $vid = 0;
@@ -948,7 +970,11 @@ func host_getmac(arplist []string,host string, destip string){
 
 //#ping 一个主机
 //#暂不支持一个host多个ping实例
-func host_ping(pinglist []string, arplist []string , host string,ping string){
+func host_ping(host *map[string]string,ping *map[string]string) bool {
+	_ = pinglist
+	_ = arplist
+	_ = host
+	_ = ping
  /*   my ($pinglist,$arplist,$host,$ping) = @_;
     my $port = $$host{port};
     my $vid = 0;
@@ -1021,13 +1047,16 @@ func host_ping(pinglist []string, arplist []string , host string,ping string){
         Time::HiRes::sleep($interval);
     }
     Time::HiRes::sleep($timeout - $interval) if($timeout > $interval);
-    return 1;
+    
     */
+	 return true
 }
 
 //#获取ping的结果
 //#暂不支持一个host多个ping实例
-func host_pingresult(host string, ping string){
+func host_pingresult(host *map[string]string, ping *map[string]string) string {
+	_ = host
+	_ = ping
  /*   my ($host,$ping) = @_;
     my $port = $$host{port};
     my $vid = 0;
@@ -1071,12 +1100,15 @@ func host_pingresult(host string, ping string){
                     $rx,$tx,$max,$min,$avg);
     return $ret;
     */
+    return ""
 }
 
 //#**************************************************
 //# 大数的递增处理 11 22 33 44 + 00 01 00 20
 //#**************************************************
 func increment(data string, num int){
+	_ = data
+	_ = num
    /* my ($data,$num) = @_;
     my $len = length $data;
     my $tmp = 0;
@@ -1097,6 +1129,7 @@ func increment(data string, num int){
 //# 获取下一个包的信息
 //#**************************************************
 func getInfoNext(info *map[string]string){
+	_ = info
 	/*
     my $info = shift;
     foreach my $k ('VLANID','IP.SRC','IPV6.SRC','UDP.SRC','TCP.SRC','IP.DEST','UDP.DEST','TCP.DEST') {
@@ -1132,6 +1165,7 @@ func getInfoNext(info *map[string]string){
 //# 根据报文参数封装报文
 //#**************************************************
 func getpacket (info *map[string]string){
+	_ = info
     /*info = shift;
     my ($ip, $ip6, $udp, $tcp, $icmp,$packet);
     my $len = 14;#mac
