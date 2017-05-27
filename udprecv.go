@@ -24,6 +24,7 @@ type InterfaceInfo struct{
  	intf string;
  	pid int;
  	mac string;
+ 	object string;
 }
  
 var intf map[string] InterfaceInfo
@@ -134,9 +135,13 @@ func tcpdump_get(i string, num string)string {
 	_ = i
 	return ""
 }
-func tcpdump_stat(i string)string {
+func tcpdump_stat(i string, stream string)(t int,r int,ts int,rs int) {
 	_ = i
-	return ""
+	_ = stream
+	return 1,2,3,4
+}
+func tcpdump_clearstatics(stream string){
+	_ = stream
 }
 
 var ntx_data map[string]interface{};
@@ -309,19 +314,20 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         staEngine := data["object"]; //引擎名称
         staEnginev := ntx_data[staEngine].(map[string]string)
         port := staEnginev["object"]
-        t,r,ts,rs := tcpdump_stat(port);
+        t,r,ts,rs := tcpdump_stat(port,"");
         istring = fmt.Sprintf("GetPortStats TxFrames = %d , RxFrames = %d , rxsignature = %d , txsignature = %d",t,r,rs,ts)
         ilen,_ := socket.WriteToUDP([]byte(istring),client)    
         fmt.Printf("Send:%s(%d)\n",istring,ilen);
     }else if order == "getstreamstats" {
-        istring = undef;
+        istring = ""
         if _,ok := data["streamname"];ok {
-            staEngine = data["object"];        //引擎名称
-            streamname = data["streamname"] //流名称
-            port = ntx_data[staEngine]["object"]
+            staEngine := data["object"];        //引擎名称
+            streamname := data["streamname"] //流名称
+            staEnginev := ntx_data[staEngine].(map[string]string)
+            port := staEnginev["object"]
             fmt.Printf("%-10s%s\n","OBJECT NAME :",staEngine)
             fmt.Printf("%-10s%s\n","Stream NAME :",streamname)
-            t,r := tcpdump_stat(port,streamname)
+            t,r,_,_ := tcpdump_stat(port,streamname)
             istring = fmt.Sprintf("GetStreamStats TxFrames = %d , RxFrames = %d",t,r)
         } else {
             istring = "GetStreamStats Error";
@@ -348,9 +354,10 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["name"];ok {
             fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"])
             profile := data["name"]
-            if _,ok := ntx_data["profile"] {
-                streamlist = ntx_findstream(profile);
-                ntx_stopstream(port,streamlist);
+            if _,ok := ntx_data["profile"];ok {
+                streamlist := ntx_findstream(profile)
+                _ = streamlist
+                //ntx_stopstream(port,streamlist)
                 delete(ntx_data,profile)
             }
         }
@@ -358,53 +365,60 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["pduname"];ok { //HexString 是具体的报文内容
             fmt.Printf("%-10s%s\n","CreateCustomPkt NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]["typel3"] = "pkt"
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel3"] = "pkt"
         }
     }else if order == "createethheader" {
         if _,ok := data["pduname"];ok {
-        	pdu := data["pduname"]
             fmt.Printf("%-10s%s\n","CreateEthHeader NAME :",data["pduname"])
-            ntx_data[pdu] = data;
-            ntx_data[pdu]["typel2"] = "eth"
+            ntx_data[data["pduname"]] = data;
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel2"] = "eth"
         }
     }else if order == "createvlanheader" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateVlanHeader NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]["typevlan"] = "vlan"
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typevlan"] = "vlan"
         }
     }else if order == "createipv4header" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateIPV4Header NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]["TypeL3"] = "ipv4"
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel3"] = "ipv4"
         }
     }else if order == "createipv6header" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateIPV6Header NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]]["typel3"] = "ipv6"
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel3"] = "ipv6"
         }
     }else if order == "createudpheader" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateUDPHeader NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]]["typel4"]  = "udp";
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel4"]  = "udp";
         }
     }else if order == "createtcpheader" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateTCPHeader NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data;
-            ntx_data[data["pduname"]]["typel4"] = "tcp"
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel4"] = "tcp"
         }
     }else if order == "createicmppkt" {
         if _,ok := data["pduname"];ok {
             fmt.Printf("%-10s%s\n","CreateICMPPkt NAME :",data["pduname"])
             ntx_data[data["pduname"]] = data
-            ntx_data[data["pduname"]]["typel4"] = "icmp"
+            pdunamev := ntx_data[data["pduname"]].(map[string]string)
+            pdunamev["typel4"] = "icmp"
             
-            if _,ok = ntx_data[data["pduname"]]["type"];ok {
-                ntx_data[data["pduname"]]["icmptype"] = ntx_data[data["pduname"]]["type"]
+            if _,ok = pdunamev["type"];ok {
+                ntx_data[pdunamev["icmptype"]] = pdunamev["type"]
             }
         }
     }else if order == "createstream" {
@@ -424,19 +438,20 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
     	_,ok1 := data["streamname"]
     	_,ok2 := ntx_data[data["streamname"]]
         if ok1 && ok2 {
-            stream = data["streamname"]
+            stream  := data["streamname"]
             fmt.Printf("%-10s%s\n","CreateStream NAME :",stream)
+            streamv :=ntx_data[stream].(map[string]string)
             for k,v := range(data) {
-                ntx_data[stream][k] = v
+                streamv[k] = v
             }
         }
     }else if order == "destroystream" {
         if _,ok := data["streamname"];ok {
             fmt.Printf("%-10s%s\n","CreateProfile NAME :",data["name"])
-            stream = data["streamname"]
+            stream := data["streamname"]
            
             if _,ok = ntx_data[stream];ok {
-                ntx_stopstream(port,stream);
+                //ntx_stopstream(port,stream)
                 delete(ntx_data,stream)
             }
         }
@@ -445,63 +460,19 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         _,ok1 := data["pduname"]
         _,ok2 := data["object"]
         if ok1 && ok2 {
-            stream  = data["object"]
+            stream  := data["object"]
             fmt.Printf("%-10s%s\n","Stream NAME  :",stream)
             fmt.Printf("%-10s%s\n","AddPdu       :",data["pduname"])
-            ntx_data[stream]["addpdu"] = data["pduname"]        
+            streamv :=ntx_data[stream].(map[string]string)
+            streamv["addpdu"] = data["pduname"]        
         }       
     
     }else if order == "starttraffic" {
-        port = data["object"];
-        profile = ""
-        streamlist := make([]string)
-        onlyport = 0;
+        port := data["object"];
+        profile := ""
+        streamlist := make([]string,0)
+        onlyport := false;
         
-        if _,ok := data["streamnamelist"];ok { //streamnamelist = {stream11 stream12}
-            info = data["streamnamelist"]
-            info = strings.Trim(info, "{}")
-            streamlist1 := regexp.MustCompile(`\s+`).Split(info, 100)
-            for _,v := range(streamlist1) {
-            	if ok,_ := regexp.MatchString(`\S`, v);ok {
-		            streamlist = append(streamlist,v)
-            	}
-            }
-            if (len(streamlist) > 0) {
-                profile = ntx_findprofile(streamlist[0])
-            }
-        } else if _,ok := data["streamlist"];ok {
-            streamlist = append(streamlist,data["streamlist"])
-            profile = ntx_findprofile(data[streamlist])
-        } else if _,ok := data["profilelist"];ok {
-            profile = data["profilelist"]
-            streamlist = ntx_findstream(profile)
-        } else {
-            streamlist = ntx_findstreamByPort(port)
-            onlyport = 1;
-        }
-        
-        fmt.Printf("%-10s%s\n","OBJECT NAME  :",port)
-        fmt.Printf("%-10s%s\n","Profile NAME :",profile)
-        fmt.Printf("%-10s%s\n","ClearStatistic :",data["clearstatistic"])
-        
-        _,ok1 = data["clearstatistic"]
-         if !ok1 || (ok && data["clearstatistic"] == "1"){
-            if onlyport {
-                tcpdump_clearstatics("?ALL");
-            } else {
-                for _,stream = range(streamlist) { 
-                    tcpdump_clearstatics(stream);
-                }
-            }
-            //sleep 1;
-         }
-
-        ntx_startstream(port,streamlist)
-        
-    } else if order == "stoptraffic" {
-        port = data["object"];
-        profile = undef
-        streamlist = make([]string,0)
         if _,ok := data["streamnamelist"];ok { //streamnamelist = {stream11 stream12}
             info := data["streamnamelist"]
             info = strings.Trim(info, "{}")
@@ -516,7 +487,52 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             }
         } else if _,ok := data["streamlist"];ok {
             streamlist = append(streamlist,data["streamlist"])
-            profile = ntx_findprofile(data[streamlist])
+            profile = ntx_findprofile(data["streamlist"])
+        } else if _,ok := data["profilelist"];ok {
+            profile = data["profilelist"]
+            streamlist = ntx_findstream(profile)
+        } else {
+            streamlist = ntx_findstreamByPort(port)
+            onlyport = true;
+        }
+        
+        fmt.Printf("%-10s%s\n","OBJECT NAME  :",port)
+        fmt.Printf("%-10s%s\n","Profile NAME :",profile)
+        fmt.Printf("%-10s%s\n","ClearStatistic :",data["clearstatistic"])
+        
+        _,ok1 := data["clearstatistic"]
+         if !ok1 || (ok1 && data["clearstatistic"] == "1"){
+            if onlyport {
+                tcpdump_clearstatics("?ALL");
+            } else {
+                for _,stream := range(streamlist) { 
+                    tcpdump_clearstatics(stream);
+                }
+            }
+            //sleep 1;
+         }
+
+        ntx_startstream(port,streamlist)
+        
+    } else if order == "stoptraffic" {
+        port := data["object"];
+        profile := ""
+        streamlist := make([]string,0)
+        if _,ok := data["streamnamelist"];ok { //streamnamelist = {stream11 stream12}
+            info := data["streamnamelist"]
+            info = strings.Trim(info, "{}")
+            streamlist1 := regexp.MustCompile(`\s+`).Split(info, 100)
+            for _,v := range(streamlist1) {
+            	if ok,_ := regexp.MatchString(`\S`, v);ok {
+		            streamlist = append(streamlist,v)
+            	}
+            }
+            if (len(streamlist) > 0) {
+                profile = ntx_findprofile(streamlist[0])
+            }
+        } else if _,ok := data["streamlist"];ok {
+            streamlist = append(streamlist,data["streamlist"])
+            profile = ntx_findprofile(data["streamlist"])
         } else if _,ok := data["profilelist"];ok {
             profile = data["profilelist"];
             streamlist = ntx_findstream(profile);
@@ -530,31 +546,31 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         ntx_stopstream(port,streamlist)
     }else if order == "createtestport" {
         if _,ok := data["portname"];ok {
-        	data[portname] = strings.TrimLeft(data[portname],":")
+        	data["portname"] = strings.TrimLeft(data["portname"],":")
             ntx_int_init(&data);
         }
     }else if order == "cleanuptest" {
         //无法删除线程，暂不清除port
         for port,_ := range(intf) {
         	portinfo := intf[port]
-        	if _,ok := portinfo["object"];ok {
+        	if portinfo.object != "" {
 	        	continue
         	}
-            fmt.Printf("Delete port %s obj %s",port,portinfo["object"]);
-            delete(portinfo,"object")
+            fmt.Printf("Delete port %s obj %s",port,portinfo.object);
+            portinfo.object = ""
         }
         fmt.Printf("Clean all -- Not support\n")
     }else if order == "resetsession" {
         if _,ok := data["object"];ok {
             fmt.Printf("%-10s%s\n","ResetSession  :", data["object"])
-            DPrint("------ResetSession--before--")
-            DPrint(&ntx_data,&intf)
+            fmt.Println("------ResetSession--before--")
+            fmt.Println(&ntx_data,&intf)
             //str = `ps -ef | grep udpr`
             //DPrint($str)
-            DPrint("------ResetSession----------");
-            ntx_stopstream();
+            fmt.Println("------ResetSession----------");
+            //ntx_stopstream("");
             ntx_int_reset(&data);
-             for k,v :=range(ntx_data) {
+             for k,_ :=range(ntx_data) {
 	             delete(ntx_data,k)
              }
         }
@@ -570,7 +586,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
 //#-portname ::CHASSIS1/1/4
 //#-porttype ETHERNET
 //#-object CHASSIS1
-func ntx_int_init (iinterface *map[string]interface{}) {
+func ntx_int_init (iinterface *map[string]string) {
 	_ = iinterface
 /*    my (%int) = @_;
     my $port = $int{portname};
@@ -612,7 +628,7 @@ func ntx_int_init (iinterface *map[string]interface{}) {
 }
 //#重置 CHASSIS1
 //#-object CHASSIS1
-func ntx_int_reset(iinterface *map[string]interface{}) {
+func ntx_int_reset(iinterface *map[string]string) {
 	_ = iinterface
 /*    my (%int) = @_;
     my $object = $int{object};
@@ -628,7 +644,7 @@ func ntx_int_reset(iinterface *map[string]interface{}) {
     }*/
 }
 //#根据stream找profile
-func ntx_findprofile (stream string) map[string]string {
+func ntx_findprofile (stream string) string {
 	_ = stream
 /*    my $stream = shift;
     our %ntx_data;
@@ -641,6 +657,7 @@ func ntx_findprofile (stream string) map[string]string {
         }
     }
     return undef;*/
+	return ""
 }
 
 //#根据profile找到所属的stream
@@ -658,7 +675,8 @@ func ntx_findstream(profile string) []string {
         }
     }
     return @stream;*/
-	return nil
+	var stringl []string = []string{"1","2"}
+	return stringl
 }
 
 // #根据port找到所属的stream
@@ -686,6 +704,8 @@ func ntx_findstreamByPort(port string) []string {
         }
     }
     return @stream; */
+    stream := []string{"1","2"}
+    return stream
 }
 
 func ntx_startstream(port string,streamlist []string){
@@ -759,7 +779,7 @@ func ntx_startstream(port string,streamlist []string){
     */
 }
 
-func ntx_stopstreamntx_startstream(port string,streamlist []string){
+func ntx_stopstream(port string,streamlist []string){
 	_ = port
 	_ = streamlist
    /* my($port,@streamlist) = @_;
@@ -971,8 +991,6 @@ func host_getmac(arplist []string,host string, destip string){
 //#ping 一个主机
 //#暂不支持一个host多个ping实例
 func host_ping(host *map[string]string,ping *map[string]string) bool {
-	_ = pinglist
-	_ = arplist
 	_ = host
 	_ = ping
  /*   my ($pinglist,$arplist,$host,$ping) = @_;
@@ -1128,7 +1146,7 @@ func increment(data string, num int){
 //#**************************************************
 //# 获取下一个包的信息
 //#**************************************************
-func getInfoNext(info *map[string]string){
+func getInfoNext(info *map[string]string) int{
 	_ = info
 	/*
     my $info = shift;
