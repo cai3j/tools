@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	_ "reflect"
+	"reflect"
 	_ "time"
 	"regexp"
 	"strings"
-	_ "log"
+	"log"
 	"os"
 	_ "os/exec"
 	"bufio"
@@ -17,7 +17,7 @@ import (
 	"encoding/binary"
     _ "github.com/google/gopacket"
 	_ "github.com/google/gopacket/layers"
-	_ "github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcap"
 )
 
 type InterfaceInfo struct{
@@ -25,6 +25,7 @@ type InterfaceInfo struct{
  	pid int;
  	mac string;
  	object string;
+ 	porttype string;
 }
  
 var intf map[string] InterfaceInfo
@@ -54,6 +55,10 @@ func readloop(port int) {
         //fmt.Println("--------------------------\n")
         //printBlock(1,0,$buff);
         //print "--------------------------\n";
+        fmt.Printf("read: %v(%d)\n",string(buff[:readnum]),readnum)
+        log.Printf("socket %v(%s)\n",socket,reflect.TypeOf(socket))
+        log.Printf("client %v(%s)\n",client,reflect.TypeOf(client))
+        
         sendip(socket, client,buff,readnum);
     
 	    //chop($buff); 
@@ -84,8 +89,10 @@ func cli_init(port int) {
         if(len(getdata) <= 0){
             continue;
         }
-		
-        _, err = socket.Write([]byte(getdata))
+		fmt.Println("Read something: ",getdata)
+		var sendinfo []byte = []byte{0,1}
+		sendinfo = append(sendinfo,[]byte(getdata)...)
+        _, err = socket.Write(sendinfo)
     }
     return
 }
@@ -98,12 +105,13 @@ func sendip_init() {
 }
 
 func sendip(socket *net.UDPConn, client *net.UDPAddr, pktbyte []byte, length int) int {
-	order := binary.BigEndian.Uint16(pktbyte[:1])
+	order := binary.BigEndian.Uint16(pktbyte[:2])
     pkt := string(pktbyte[2:length]);
     //print "ORDER : $order\n";
-	fmt.Printf("ORDER : %d", order)
+	fmt.Printf("ORDER : %d(%s)\n", order,pkt)
     if (1 == order) {
         //sim_simple(client,pkt);
+        log.Printf("sim_simple : %s\n", pkt)
     } else if (3 == order) {
         pkt = strings.TrimSpace(pkt)
         fmt.Println ("--------------------------");
@@ -586,45 +594,44 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
 //#-portname ::CHASSIS1/1/4
 //#-porttype ETHERNET
 //#-object CHASSIS1
-func ntx_int_init (iinterface *map[string]string) {
-	_ = iinterface
-/*    my (%int) = @_;
-    my $port = $int{portname};
-    return if (not defined $port) ;
-    if (exists $interface{$port}) {
-        printf "Delete old port %s\n",$port;
-        tcpdump_delport($port);
+func ntx_int_init (intfp *map[string]string) {
+
+    port := (*intfp)["portname"]
+    
+    if _,ok := intf[port];ok {
+        fmt.Printf("Delete old port %s\n",port)
+        tcpdump_delport(port)
     }
-    my $index = $int{portlocation};
-    $index =~ s/^.*?\/(\S+)$/$1/;
-    if (not ($index =~ /^\d+$/)) {
-        #may be interface name ex:virbr0
-        DPrint("Interface $index is created!");
-        $interface{$port}{INT} = $index;
-        $interface{$port}{porttype} = $int{porttype};
-        $interface{$port}{portlocation} = $int{portlocation};
-        $interface{$port}{object} = $int{object};
+    index := (*intfp)["portlocation"]
+    index = regexp.MustCompile(`^.*?\/(\S+)$`).ReplaceAllString(index, `$1`)
+    if ok,_ := regexp.MatchString(`^\d+$`, index);ok {
+        //#may be interface name ex:virbr0
+        log.Printf("Interface %s is created!\n",index);
+        intf[port].intf = index;
+        intf[port].porttype = (*intfp)["porttype"]
+        intf[port].portlocation = (*intfp)["portlocation"]
+        intf[port].object = (*intfp)["object"]
         return 
     }
-    my (%devinfo,$err);
-    my   @devs = Net::Pcap::pcap_findalldevs(\%devinfo, \$err);
-    if ($index <=0 || $index > scalar @devs) {
-        DPrint("interface $index is not exists!");
+    devs,_ := pcap.FindAllDevs()
+    index_int,_ := strconv.Atoi(index)
+    if (index_int <=0 || index_int > len(devs)) {
+        log.Printf("interface %d is not exists!\n",index_int);
         return 0;
     }
-    if (exists $interface{$port}) {
-        DPrint("interface $port is exists!");
-        DPrint($interface{$port});
-        if ($devs[$index-1] ne $interface{$port}{INT} ) {
-            DPrint("INTERFACE is change ：unsupport, please reboot server");
+    if _,ok := intf[port];ok {
+        log.Printf("interface %s is exists!\n",port);
+        log.Printf("%v\n",intf[port]);
+        if devs[index_int-1].name != intf[port].intf {
+            log.Printf("INTERFACE is change ：unsupport, please reboot server");
         }
     }
-    DPrint("interface $index is $devs[$index-1]!");
-    $interface{$port}{INT} = $devs[$index-1];
-    $interface{$port}{porttype} = $int{porttype};
-    $interface{$port}{portlocation} = $int{portlocation};
-    $interface{$port}{object} = $int{object};
-    */
+    log.Printf("interface %s is $devs[$index-1]!",index);
+    intf[port].intf = devs[index-1];
+    intf[port].porttype = (*intfp)["porttype"]
+    intf[port].portlocation = (*intfp)["portlocation"]
+    intf[port].object = (*intfp)["object"]
+    
 }
 //#重置 CHASSIS1
 //#-object CHASSIS1
@@ -1409,7 +1416,9 @@ func argfrase(args ...string) map[string]string{
 func main() {
 	fmt.Printf("Init port %d.\n", *port)
 	fmt.Println("-----------------------")
+	flag.Parse()
 	if *cli {
+		fmt.Println("Init Cli")
 	    go cli_init(*port);
 	}
 	readloop(*port)
