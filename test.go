@@ -371,8 +371,8 @@ func ExeRegexp(args []string) error{
 	
 	reg2,_ := regexp.Compile(`\d`)
 	reg3 := regexp.MustCompile("\\d")	
-	fmt.Printf("Compile : %v\n", reg2.FindStringSubmatch("1"))
-	fmt.Printf("Must Compile : %v\n", reg3.FindStringSubmatch("1"))
+	fmt.Printf("Compile : %v\n", reg2.FindString("1"))
+	fmt.Printf("Must Compile : %v\n", reg3.FindString("1"))
 	fmt.Printf("Splite : %v\n", reg3.Split("1x1b2c345", 10))
 	return nil
 }
@@ -387,6 +387,8 @@ func ExeStr(args []string) error{
 	fmt.Printf("A + B =  %v\n",str1+str2)
 	fmt.Printf("%s\n",strings.TrimLeft(":2324", ":"))
 	fmt.Printf("string(1) ::: %s\n",strconv.FormatBool(true))
+	int3,err := strconv.Atoi("123")
+	fmt.Printf("string to int ::: %d, %v\n",int3,err)
 	return nil
 }
 
@@ -433,10 +435,43 @@ func ExeMap(args []string) error{
 	map6 := make(map[string]string)
 	map6["22"] = "33"
 	map6p := &map6
-	fmt.Printf("map6p : %s\n", (*map6p)["22"])
-	
-	
+	fmt.Printf("map6p : %v\n", (*map6p)["33"])
+	/*
+	if ((_,ok := map6["33"];ok) && (_,ok2 := map6["32"];ok2)) {
+		fmt.Printf("map6p\n")
+	}
+	*/
 	return nil
+}
+
+func ExePoint(args []string) {
+	log.Printf("ExePoint args : %v", args)
+	type StructTest struct{
+		a int
+		b string
+	}
+	var struct1 *StructTest
+	struct1 = new(StructTest)
+	struct1 = nil
+	struct1 = new(StructTest)
+	struct1.a = 1
+	struct1.b = "12"
+	fmt.Printf("%v\n", struct1)
+}
+
+func ExeChan(args []string) {
+	log.Printf("ExeChan args : %v", args)
+	chs := make(chan struct{a int; b string})
+	fmt.Printf("Type : %s\n", reflect.TypeOf(chs))
+	defer close(chs)
+	go func(){
+		time.Sleep(time.Second)
+		chs <- struct{a int; b string}{1,"2"}
+	}()
+	
+	value := <-chs
+	fmt.Printf("%v,%d,%s\n",value,value.a,value.b)
+	
 }
 
 func ExeCli(args []string) {
@@ -561,6 +596,10 @@ func main() {
 			ExeMap(flag.Args()[1:])
 		case "list" :
 			ExeList(flag.Args()[1:])
+		case "point" :
+			ExePoint(flag.Args()[1:])
+		case "chan" :
+			ExeChan(flag.Args()[1:])
 		case "packet" :
 			ExePacket(flag.Args()[1:])	
 		case "udps":

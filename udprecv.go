@@ -13,13 +13,17 @@ import (
 	"os"
 	_ "os/exec"
 	"bufio"
-	_ "sync"
+	"sync"
 	"encoding/binary"
-    _ "github.com/google/gopacket"
-	_ "github.com/google/gopacket/layers"
+    "github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 )
-
+type InterfaceRunInfo struct{
+	chan_order chan OrderChan
+ 	chan_ret chan string
+ 	wg sync.WaitGroup
+}
 type InterfaceInfo struct{
  	intf string
  	pid int
@@ -27,9 +31,14 @@ type InterfaceInfo struct{
  	object string
  	porttype string
  	portlocation string
+ 	pcap *pcap.Handle
+ 	running *InterfaceRunInfo
+ 	
 }
+
+type OrderChan struct{o, arg string}
  
-var IntferfaceAll map[string]*InterfaceInfo
+var InterfaceAll map[string]*InterfaceInfo
  
 var cli *bool = flag.Bool("cli", false, "Use cli.")
 var port *int = flag.Int("port", 9090, "Set server port.")
@@ -91,7 +100,7 @@ func cli_init(port int) {
             continue;
         }
 		fmt.Println("Read something: ",getdata)
-		var sendinfo []byte = []byte{0,1}
+		var sendinfo []byte = []byte{0,0}
 		sendinfo = append(sendinfo,[]byte(getdata)...)
         _, err = socket.Write(sendinfo)
     }
@@ -101,7 +110,7 @@ func cli_init(port int) {
 
 
 func sendip_init() {
-	IntferfaceAll = make(map[string]*InterfaceInfo)
+	InterfaceAll = make(map[string]*InterfaceInfo)
 	sim_ntx_init()
 }
 
@@ -123,13 +132,44 @@ func sendip(socket *net.UDPConn, client *net.UDPAddr, pktbyte []byte, length int
         argslist := spacecomp.Split(pkt, 100)
         sim_ntx(socket, client, argslist[0],argslist[1:]...)
     }else if (0 == order) {    //config
-        //config_exe($client,split(/\s+/,$pkt));
+	    spacecomp := regexp.MustCompile("\\s+")
+        argslist := spacecomp.Split(pkt, 100)
+        config_exe(socket, client, argslist[0],argslist[1:]...)
      }else{
         fmt.Printf("UNKNOW ORDER\n");
         return -1;
     }
     return 0;
 }
+
+func config_exe(socket *net.UDPConn, client *net.UDPAddr, order string , args ...string) int {
+    istring := "Unknow order!"
+    //printf "%-10s : %s @arg\n","ORDER",$order;
+    if order == "help" {
+        istring  = "0      help\n" +
+                   "0      debug [on|off]\n"+
+                   "0      ntx|ntx-i|ntx-g\n"+
+                   "1|2    sim simple\n"+
+                   "3|4    sim ntx\n"
+    } else if order == "ntx-i" {
+        istring = fmt.Sprintf("%v\n",InterfaceAll)
+    } else if order == "ntx-g" {
+        istring = fmt.Sprintf("%v\n",ntx_data)
+    } else if order == "ntx" {
+        istring = "Show in server!";
+        fmt.Printf("-----------ntx_data----------\n")
+        fmt.Printf("%v\n",ntx_data)
+        fmt.Printf("------------interface--------\n")
+        fmt.Printf("%v\n",InterfaceAll)
+        fmt.Printf("-------------cap---------\n")
+    } else {
+        fmt.Printf("Unknow order!\n")
+    }
+    ilen,_ := socket.WriteToUDP([]byte(istring),client)
+    fmt.Printf("Send:%s(%d)\n",istring,ilen);
+    return 0
+}
+
 /*
 sub process_arp{
     my ($cookie, $header, $packet) = @_;
@@ -278,37 +318,81 @@ sub process_arp{
     return;
 }
 */
-func tcpdump_caparp(info *map[string]string){
-	_ = info
-	/*    my ($ret,$err);
-    my $pcap = $info->{pcap};
-
-    my $flite = "arp or icmp or icmp6 or (vlan and (arp or icmp or icmp6))";
-    DPrint("FLITE : $flite");
-    $ret = Net::Pcap::pcap_compile($pcap, \$flite,$flite,0,0);
-    DPrint("Set flite error") if ($ret < 0); 
-    $ret = Net::Pcap::pcap_setfilter($pcap, $flite);
-    my $num = 0;
-    while (1) {
-        $ret = Net::Pcap::pcap_loop($pcap, 0, \&process_arp, $info);
-        ($ret < 0)?last:($num += $ret);
-        #DPrint(sprintf("Int %s Cap $ret ($num) ",$info->{INT}));
-    }
-    Net::Pcap::pcap_close($pcap);
-    printf "Tid %d is exit\n",threads->tid();
-    sleep 5;
-    */
+func tcpdump_caparp(info map[string]interface{}){
+	pcap_handle := info["pcap"].(*pcap.Handle)
+	fliter := "arp or icmp or icmp6 or (vlan and (arp or icmp or icmp6))"
+	log.Printf("FLITE : %s",fliter)
+	arpadd_regexp := regexp.MustCompile(`\s*(\S+)\s*:\s*(\S+)\s*:\s*(\d+)\s*`)
+	if err := pcap_handle.SetBPFFilter(fliter); err != nil{
+		panic(err)
+	}
+	chan_order := info["chan_order"].(chan OrderChan)
+	chan_ret   := info["chan_ret"].(chan string)
+	_ = chan_ret
+	pcap_src := gopacket.NewPacketSource(pcap_handle, layers.LayerTypeEthernet) //读取报文
+	packet_in := pcap_src.Packets()
+	type MacInfo struct{ip string;vlan int}
+	arpd := make(map[string]MacInfo)
+	
+	for {
+		var packet gopacket.Packet
+		var order struct{o string;arg string}
+		select {
+		case order = <- chan_order: // 如果是读到停止， 就返回
+			log.Printf("Read a command : %v",order)
+			if order.o == "add" {
+				arpadd :=arpadd_regexp.FindStringSubmatch(order.arg)
+				if len(arpadd) > 0 {
+					vlan,_ := strconv.Atoi(arpadd[3])
+					arpd[arpadd[1]] = MacInfo{arpadd[2],vlan}
+					log.Printf("Read a arp : %v",arpd[arpadd[1]])
+				} 
+			}else if order.o == "quit" {
+				break
+			}
+		case packet = <-packet_in:
+			log.Printf("pkt : %+v", packet)
+			//icmp := icmpLayer.(*layers.ICMPv4)
+			//log.Printf("%+v",icmp)
+		}
+	}
+	log.Printf("Tid is exit\n")
 }
 
 func tcpdump_arpd(port string,ip string,mac string,vlan int){
-/*
-    if (not exists $interface{$port}) {
-        DPrint("Unknow interface \"$port\"");
+	log.Printf("arpd :port %s, ip %s, mac %s, vlan %d", port,ip,mac,vlan)
+	portv,ok := InterfaceAll[port]
+    if !ok {
+        log.Printf("Unknow interface \"%s\"",port);
         return;
     }
-    if ( not defined $interface{$port}{PCAP}) {
-        tcpdump_open($port);
+    
+    if portv.pcap == nil {
+        tcpdump_open(port)
     }
+    log.Printf("port : %v\n", portv)
+    
+    if portv.running == nil {
+    	info := make(map[string]interface{},100)
+    	info["pcap"] = portv.pcap
+    	portv.running = &InterfaceRunInfo{
+		    	chan_order : make(chan OrderChan),
+		    	chan_ret : make(chan string)}
+    	info["chan_order"] = portv.running.chan_order
+    	info["chan_ret"] = portv.running.chan_ret
+	    wg := portv.running.wg
+	    wg.Add(1)
+	    go func(){
+	    	defer wg.Done()
+	    	tcpdump_caparp(info)
+	    }()
+    }
+    chan_order := portv.running.chan_order
+    
+    arparg := fmt.Sprintf("%s:%s:%d", mac, ip,vlan)
+    chan_order <- OrderChan{"add",arparg}
+    
+    /*
     my $thread = $interface{$port}{PID};
     if (not defined $thread) {
         my $info;
@@ -336,8 +420,7 @@ func tcpdump_arpd(port string,ip string,mac string,vlan int){
         $mac =~ s/[^0-9a-fA-F]//g;
         ${$interface{$port}{arpd}}{$ip.':'.$vlan} = $mac;
     }
-    return;
-*/
+    return*/
 }
 /*
 sub process_packet{
@@ -426,43 +509,37 @@ func tcpdump_cappkt(info *map[string]string){
 }
 
 func tcpdump_open(port string){
-   /*
-    my $ret;
-    print "open $port\n";
-    if (not exists $interface{$port}) {
-        DPrint("Can't find interface \"$port\"");
+	fmt.Printf("open %s\n", port)
+	portv,ok := InterfaceAll[port]
+	if !ok {
+        log.Printf("Can't find interface \"%s\"",port);
         return;
     }
-    if (not defined $interface{$port}{PCAP}) {
-        $interface{$port}{PCAP} =
-            Net::Pcap::pcap_open_live($interface{$port}{INT}, 1500, 1, 0, \$ret)
-                or die "Can't open device  : $ret\n";
-    }
-    return ;
-    */
+	
+	if portv.pcap == nil {
+		handle, err := pcap.OpenLive(portv.intf, 65536, true, pcap.BlockForever)
+		if err != nil {
+			log.Printf("Can't open device : \"%s\"",err);
+		}
+		portv.pcap = handle
+	}
 }
 func tcpdump_close(port string){
-    /*
-
-    print "Close $port\n";
-    if (not exists $interface{$port}) {
-        DPrint("Can't find interface \"$port\"");
+	fmt.Printf("close %s\n", port)
+	portv,ok := InterfaceAll[port]
+	if !ok {
+        log.Printf("Can't find interface \"%s\"",port);
         return;
     }
-    if (defined $interface{$port}{PCAP}) {
-        my $pcap = $interface{$port}{PCAP};
-        Net::Pcap::pcap_close($pcap);
-    }
-    print "Close $port OK\n";
-    delete $interface{$port}{PCAP};
-    return ;*/
+	if portv.pcap != nil {
+		portv.pcap.Close()
+		
+	}
+	portv.pcap = nil
+	fmt.Printf("close %s OK\n", port)
 }
 
 func tcpdump_send(port string, packet []byte,num int,timeout int){
-	_ = port
-	_ = packet
-	_ = num
-	_ = timeout
     /*
     my $ret = -1;
     $timeout = 0 if (not defined $timeout);
@@ -716,15 +793,15 @@ func tcpdump_stat(portin string, stream string)(t int,r int,ts int,rs int){
 
 func tcpdump_delport(port string){
 	
-    portv,ok := IntferfaceAll[port]
+    portv,ok := InterfaceAll[port]
     if !ok {
         return
     }
     _ = portv
     tcpdump_close(port)
-    /*
-    if (exists $interface{$port}{ARPD}{PID}) {
-        my $pid = $interface{$port}{ARPD}{PID};
+    
+    if portv.pid != 0 {
+     /*   my $pid = $interface{$port}{ARPD}{PID};
         if ($pid > 0) {
             DPrint("RELEASE CAP PID: $pid");
             #采用进程时
@@ -738,10 +815,9 @@ func tcpdump_delport(port string){
             $interface{$port}{ARPD}{PIPE}{W} = undef;
             $interface{$port}{ARPD}{PID} = undef;
             delete $interface{$port}{ARPD}{PIPE};
-        }
-        
-        delete $interface{$port};
-    }*/
+        }*/
+    }
+     delete(InterfaceAll,port)
 }
 
 
@@ -780,22 +856,22 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             port := data["object"]  //interface
             fmt.Printf("%-10s%s\n","CreateHost NAME :",data["hostname"]);
             ntx_data[data["hostname"]] = data;
-            vid := ""
+            vid := 0
             _,ok1 := data["hostname"]
             _,ok2 := ntx_data["port"]
             if ok1 && ok2 {
             	portv2 := ntx_data["port"].(map[string]string) 
-                vid  = portv2["vlanid"]
+                if vidstr,ok  := portv2["vlanid"];ok{
+                	vid,_ = strconv.Atoi(vidstr)
+                }
                 port = portv2["object"]
             }
             if _,ok1 := data["ipv4addr"];ok1 {
-                //tcpdump_arpd($port,$data{ipv4addr},$data{macaddr},$vid);
+                tcpdump_arpd(port,data["ipv4addr"],data["macaddr"],vid);
             }
             if _,ok1 = data["ipv6addr"];ok1 {
-                //tcpdump_arpd($port,$data{ipv6addr},$data{macaddr},$vid);
+                tcpdump_arpd(port,data["ipv6addr"],data["macaddr"],vid)
             }
-            _ = port
-            _ = vid
         }
     }else if order == "sendarprequest" {
         if _,ok := data["object"];ok {
@@ -1153,7 +1229,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         }
     }else if order == "cleanuptest" {
         //无法删除线程，暂不清除port
-        for port,portinfo := range(IntferfaceAll) {
+        for port,portinfo := range(InterfaceAll) {
         	if portinfo.object != "" {
 	        	continue
         	}
@@ -1187,20 +1263,20 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
 //#-portname ::CHASSIS1/1/4
 //#-porttype ETHERNET
 //#-object CHASSIS1
-func ntx_int_init (intfp *map[string]string) {
+func ntx_int_init(intfp *map[string]string) {
 
     port := (*intfp)["portname"]
     
-    if _,ok := IntferfaceAll[port];ok {
+    if _,ok := InterfaceAll[port];ok {
         fmt.Printf("Delete old port %s\n",port)
         tcpdump_delport(port)
     }
     index := (*intfp)["portlocation"]
     index = regexp.MustCompile(`^.*?\/(\S+)$`).ReplaceAllString(index, `$1`)
-    if ok,_ := regexp.MatchString(`^\d+$`, index);ok {
+    if ok,_ := regexp.MatchString(`^\d+$`, index);!ok {
         //#may be interface name ex:virbr0
         log.Printf("Interface %s is created!\n",index);
-        IntferfaceAll[port] = &InterfaceInfo{intf : index,
+        InterfaceAll[port] = &InterfaceInfo{intf : index,
 			        	porttype : (*intfp)["porttype"],
 			        	portlocation : (*intfp)["portlocation"],
 			        	object : (*intfp)["object"]}
@@ -1212,15 +1288,15 @@ func ntx_int_init (intfp *map[string]string) {
         log.Printf("interface %d is not exists!\n",index_int);
         return
     }
-    if _,ok := IntferfaceAll[port];ok {
+    if _,ok := InterfaceAll[port];ok {
         log.Printf("interface %s is exists!\n",port);
-        log.Printf("%v\n",IntferfaceAll[port]);
-        if devs[index_int-1].Name != IntferfaceAll[port].intf {
+        log.Printf("%v\n",InterfaceAll[port]);
+        if devs[index_int-1].Name != InterfaceAll[port].intf {
             log.Printf("INTERFACE is change ：unsupport, please reboot server");
         }
     }
-    log.Printf("interface %s is $devs[$index-1]!",index);
-	IntferfaceAll[port]  = &InterfaceInfo{
+    log.Printf("interface %d is %s!",index_int,devs[index_int-1].Name);
+	InterfaceAll[port]  = &InterfaceInfo{
 		        	intf : devs[index_int-1].Name,
 		        	porttype : (*intfp)["porttype"],
 		        	portlocation : (*intfp)["portlocation"],
