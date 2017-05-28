@@ -103,7 +103,14 @@ func readPacket(handle *pcap.Handle, stop chan string) {
 
 func ExePcap(args []string) {
 	log.Printf("ExePcap args : %v", args)
-	
+	if len(args) >0 {
+		devs,_ := pcap.FindAllDevs()
+		for i,v := range(devs) {
+			fmt.Printf("%d : %v(%s)\n", i,v,reflect.TypeOf(v))
+		}
+		
+		return
+	}
 
 	intfs, err := net.Interfaces()
 	if err != nil {
@@ -402,6 +409,13 @@ func ExeMap(args []string) error{
 	map5["1"] = make(map[string]string)
 	map5["1"]["2"] = "3"
 	fmt.Printf("%v\n", map5)    //map[1:map[2:3]]
+	
+	map6 := make(map[string]string)
+	map6["22"] = "33"
+	map6p := &map6
+	fmt.Printf("map6p : %s\n", (*map6p)["22"])
+	
+	
 	return nil
 }
 
