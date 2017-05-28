@@ -107,6 +107,7 @@ func ExePcap(args []string) {
 		devs,_ := pcap.FindAllDevs()
 		for i,v := range(devs) {
 			fmt.Printf("%d : %v(%s)\n", i,v,reflect.TypeOf(v))
+			fmt.Printf("%d : %v(%s)\n", i,devs[i],devs[i].Name)
 		}
 		
 		return
@@ -257,6 +258,20 @@ func argfrase(args ...string) map[string]string {
     }
     return iswitch;
 }
+type structtest struct {
+	str1 string
+	str2 string
+}
+var structmap map[string]*structtest
+func testGlobal(){
+	if structmap == nil {
+		structmap = make(map[string]*structtest)
+		structmap["s1"] = &structtest{str1:"1",str2:"2"}
+		structmap["s2"] = &structtest{"2","3"}
+	}
+	
+	structmap["s1"].str2 = structmap["s1"].str2 + "dcc"
+}
 func ExeTest(args []string) error {
 	fmt.Printf("test order : %v\n", args)
 	fmt.Println("Int :",*intFlag)
@@ -314,6 +329,11 @@ func ExeTest(args []string) error {
 	fmt.Println(v1,v2,v3)
 	argmap := argfrase("k", "-i","m")
 	fmt.Printf("arg frase : %+v\n", argmap)
+	fmt.Println("=================struct==========================")
+	testGlobal()
+	fmt.Printf("struct %v, %v\n", structmap,structmap["s1"].str2)
+	testGlobal()
+	fmt.Printf("struct %v, %v\n", structmap,structmap["s1"].str2)
 	return nil
 }
 

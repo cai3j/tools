@@ -21,14 +21,15 @@ import (
 )
 
 type InterfaceInfo struct{
- 	intf string;
- 	pid int;
- 	mac string;
- 	object string;
- 	porttype string;
+ 	intf string
+ 	pid int
+ 	mac string
+ 	object string
+ 	porttype string
+ 	portlocation string
 }
  
-var intf map[string] InterfaceInfo
+var IntferfaceAll map[string]*InterfaceInfo
  
 var cli *bool = flag.Bool("cli", false, "Use cli.")
 var port *int = flag.Int("port", 9090, "Set server port.")
@@ -100,7 +101,7 @@ func cli_init(port int) {
 
 
 func sendip_init() {
-	intf = make(map[string] InterfaceInfo)
+	IntferfaceAll = make(map[string]*InterfaceInfo)
 	sim_ntx_init()
 }
 
@@ -129,28 +130,620 @@ func sendip(socket *net.UDPConn, client *net.UDPAddr, pktbyte []byte, length int
     }
     return 0;
 }
+/*
+sub process_arp{
+    my ($cookie, $header, $packet) = @_;
+    my $pcap = $cookie->{pcap};
+    my $data = $cookie->{data};
+    #if (matchswitch('-d')) {
+        #lock($cookie->{arpd});
+        #print Dumper($cookie->{arpd});
+        #printBlock(1,0,$packet);
+    #}
+    my $eth;
+    eval{ #避免解异常报文导致退出
+        $eth = pktEthdecode($packet);
+        
+        my $vlan = 0;
+        $vlan = $eth->{vid} if(exists $eth->{vid});
+        lock($cookie->{arpd});
+        if (($eth->{type} == 0x0806)) {  #arp
+            my $arp;
+            ($arp->{head},$arp->{opcode},
+                   $arp->{smac},$arp->{sip},$arp->{tmac},$arp->{tip})=
+                    unpack("a6nH12a4H12a4",$eth->{data});
+            my $ip = formatIp($arp->{tip});
+            if (exists ${$cookie->{arpd}}{$ip.':'.$vlan} ) {
+                if($eth->{dest} eq 'ffffffffffff') { #返回应答
+                    my $ip = formatIp($arp->{tip});
+                    print "-----------------------------------\n";
+                    printf "%s -> %s (%d) %s\n", $eth->{src}, $eth->{dest},$arp->{opcode},$ip;
+                    if (exists ${$cookie->{arpd}}{$ip.':'.$vlan} ) {
+                        my $mac = ${$cookie->{arpd}}{$ip.':'.$vlan};
+                        printf "Find a req %s %s\n",$ip,$mac;
+                        $eth->{dest} = $eth->{src};
+                        $eth->{src}  = $mac;
+                        $eth->{data} = pack("a6nH12a4H12a4",$arp->{head},2,
+                                $mac,$arp->{tip},$arp->{smac},$arp->{sip});
+                        my $pkt = pktEthencode($eth);
+                        Net::Pcap::pcap_sendpacket($pcap, $pkt) ;
+                    }
+                } else {
+                    lock($cookie->{arp});
+                    my $sip = formatIp($arp->{sip});
+                    ${$cookie->{arp}}{$sip.':'.$vlan} = $arp->{smac};
+                }
+            }
+        } elsif($eth->{type} == 0x0800){
+            my $iptype = unpack("x9C",$eth->{data});
+            DPrint("TYPE IP = $iptype");
+            if ($iptype != 1) { # ICMP
+                return;
+            }
+            my $icmpt = unpack("x20C",$eth->{data});
+            DPrint("TYPE ICMP = $icmpt");
+            if ($icmpt != 8 && $icmpt != 0) {
+                return;
+            }
+            my ($ip,$icmp);
+            ($ip->{h},$ip->{src_ip},$ip->{dest_ip},$ip->{data})
+                    = unpack("a12a4a4a*",$eth->{data});
+            my $tmp = formatIp($ip->{dest_ip});
+            if (not exists ${$cookie->{arpd}}{$tmp.':'.$vlan} ) {
+                return;
+            }
+            if($icmpt == 0) { #识别是否自己发出的请求
+                ($icmp->{type},$icmp->{code},$icmp->{id},$icmp->{seq}) = 
+                     unpack("aax2nn",$ip->{data});
+                $tmp = formatIp($ip->{src_ip});
+                $tmp = $tmp.':'.$vlan.':'.$icmp->{seq};
+                #DPrint("CHECK $tmp");
+                lock($cookie->{ping});
+                if(exists ${$cookie->{ping}}{$tmp}) {
+                    #DPrint("FIND REPLY");
+                    ${$cookie->{ping}}{$tmp.'R'} = Time::HiRes::time;
+                }
+                return;
+            }
+            ($icmp->{type},$icmp->{code},$icmp->{data}) = 
+                     unpack("aax2a*",$ip->{data});
+            $icmp->{type} = 0;
+            $ip->{data} = pktIcmpencode($icmp);
+            $eth->{data} = pack "a12a4a4a*",$ip->{h},$ip->{dest_ip},
+                        $ip->{src_ip},$ip->{data};
+            $tmp = $eth->{dest};
+            $eth->{dest} = $eth->{src};
+            $eth->{src}  = $tmp;
+            $tmp = pktEthencode($eth);
+            Net::Pcap::pcap_sendpacket($pcap, $tmp) ;
+        } elsif($eth->{type} == 0x86dd){
+            my $iptype = unpack("x6C",$eth->{data});
+            DPrint("TYPE IPV6 = $iptype");
+            if ($iptype != 0x3a) { # ICMP
+                return;
+            }
+            my $icmpt = unpack("x40C",$eth->{data});
+            DPrint("TYPE ICMP6 = $icmpt");
 
-func tcpdump_creat(i string) {
-	_ = i
+            if ($icmpt != 0x87 && 0x80 != $icmpt) {
+                return;
+            }
+            my ($ip,$icmp);
+            ($ip->{l},$ip->{h},$ip->{src_ip},$ip->{dest_ip})
+                    = unpack("Ca7a16a16",$eth->{data});
+            ($icmp->{type},$icmp->{code},$icmp->{data}) = 
+                     unpack("x40aax2a*",$eth->{data});
+            if (0x80 == $icmpt) {  #rfc4443
+                my $ipstr = formatIp($ip->{dest_ip});
+                if (not exists ${$cookie->{arpd}}{$ipstr.':'.$vlan} ) {
+                    return;
+                }
+                printf "Find echo req %s %s\n",$ipstr;
+                $icmp->{type} = 129;
+                my $tmp = $eth->{dest};
+                $eth->{dest} = $eth->{src};
+                $eth->{src}  = $tmp;
+                $tmp = pack "Ca*a16a16",0x60,$ip->{h},
+                                ,$ip->{dest_ip},$ip->{src_ip};
+                $eth->{data} = $tmp.pktIcmpv6encode($icmp,$ip);
+                $tmp = pktEthencode($eth);
+                Net::Pcap::pcap_sendpacket($pcap, $tmp) ;
+                return;
+            }
+            #rfc 4861    
+            ($icmp->{ip},$icmp->{opttype},
+             $icmp->{optlen},$icmp->{optmac}) = 
+                     unpack("x4a16CCH12",$icmp->{data});
+            my $ipstr = formatIp($icmp->{ip});
+            if (exists ${$cookie->{arpd}}{$ipstr.':'.$vlan} ) {
+                my $mac = ${$cookie->{arpd}}{$ipstr.':'.$vlan};
+                printf "Find req %s %s\n",$ipstr,$mac;
+                $eth->{dest} = $eth->{src};
+                $eth->{src}  = $mac;
+                $ip->{dest_ip} = $ip->{src_ip};
+                $ip->{src_ip} = $icmp->{ip};
+                my $pkt = pack "Ca*a16a16",0x60,$ip->{h},
+                                ,$ip->{src_ip},$ip->{dest_ip};
+                $icmp->{type} = 0x88;
+                $icmp->{optmac} = $mac;
+                $icmp->{data} = pack "H8a16CCH12","60000000",$icmp->{ip},
+                                    2,1,$mac;
+                $eth->{data} = $pkt.pktIcmpv6encode($icmp,$ip);
+                $pkt = pktEthencode($eth);
+                Net::Pcap::pcap_sendpacket($pcap, $pkt) ;
+            }
+        }
+    };
+    DPrint($@) if ($@);
+    return;
 }
-func tcpdump_start(i string) {
-	_ = i
+*/
+func tcpdump_caparp(info *map[string]string){
+	_ = info
+	/*    my ($ret,$err);
+    my $pcap = $info->{pcap};
+
+    my $flite = "arp or icmp or icmp6 or (vlan and (arp or icmp or icmp6))";
+    DPrint("FLITE : $flite");
+    $ret = Net::Pcap::pcap_compile($pcap, \$flite,$flite,0,0);
+    DPrint("Set flite error") if ($ret < 0); 
+    $ret = Net::Pcap::pcap_setfilter($pcap, $flite);
+    my $num = 0;
+    while (1) {
+        $ret = Net::Pcap::pcap_loop($pcap, 0, \&process_arp, $info);
+        ($ret < 0)?last:($num += $ret);
+        #DPrint(sprintf("Int %s Cap $ret ($num) ",$info->{INT}));
+    }
+    Net::Pcap::pcap_close($pcap);
+    printf "Tid %d is exit\n",threads->tid();
+    sleep 5;
+    */
 }
-func tcpdump_stop(i string) {
-	_ = i
+
+func tcpdump_arpd(port string,ip string,mac string,vlan int){
+/*
+    if (not exists $interface{$port}) {
+        DPrint("Unknow interface \"$port\"");
+        return;
+    }
+    if ( not defined $interface{$port}{PCAP}) {
+        tcpdump_open($port);
+    }
+    my $thread = $interface{$port}{PID};
+    if (not defined $thread) {
+        my $info;
+        my %arpd :shared;
+        my %arp :shared;
+        my %ping :shared;
+        $interface{$port}{arpd}{num} = 0;
+        $info->{pcap} = $interface{$port}{PCAP};
+        $info->{arpd} = \%arpd;
+        $info->{arp} = \%arp;
+        $info->{ping} = \%ping;
+        $interface{$port}{arpd} = \%arpd;
+        $interface{$port}{arp} = \%arp;
+        $interface{$port}{ping} = \%ping;
+        $info->{INT}  = $port;
+        $thread = threads->create(\&tcpdump_caparp,$info);
+        $thread->detach();
+        printf "Create arpd thread : %d (%s)\n",
+                                     $thread->tid(),$port;
+        $interface{$port}{PID} = $thread;
+    }
+    if (defined $ip && defined $mac) {
+        lock($interface{$port}{arpd});
+        $vlan = 0 if (not defined $vlan);
+        $mac =~ s/[^0-9a-fA-F]//g;
+        ${$interface{$port}{arpd}}{$ip.':'.$vlan} = $mac;
+    }
+    return;
+*/
 }
-func tcpdump_get(i string, num string)string {
-	_ = i
-	return ""
+/*
+sub process_packet{
+    my ($cookie, $header, $packet) = @_;
+    my $host = $cookie->{hostmac};
+    if (matchswitch('-d')) {
+        my %pdu = getPacketInfo($packet);
+        printf "CAP %s:%s\n",
+            $host,getPacketBrief(%pdu);
+        #printBlock(1,0,$packet);
+        #printPacketInfo(%pdu);        
+    }
+    eval{ #避免解异常报文导致退出
+        if ($cookie->{type} eq 'packet') {
+            my $num = ++${$cookie->{STAT}}->{"NUMBER"};
+            if ($num > 100000) {  #最多只抓100000个包，避免内存溢出,可以停止后再开始
+                DPrint("Capture too many!");
+                return;
+            }
+            my $time = ','.$header->{tv_sec}.','.$header->{tv_usec};
+            ${$cookie->{STAT}}->{"CAP$num"} = (sprintf "%*v02X",'',$packet).$time;
+            #${$cookie->{STAT}}->{"CAPTIME$num"} = $header;
+            #DPrint($header);
+            printf "FIND ONE (%d)",$num;
+            return;
+        }
+        my $eth = pktEthdecode($packet);
+        #暂时过滤掉非ip报文
+        if (0x0800 != $eth->{type} && 0x86dd != $eth->{type}) {
+            return;
+        }
+        if ($eth->{src} eq $host) {
+            ${$cookie->{STAT}}->{T}++;
+            if ($packet =~/START(.+)END/s) {
+                DPrint("SEND ONE : $1");
+                ${$cookie->{STAT}}->{"$1.T"}++;
+            }else{
+                DPrint("SEND ONE");
+            }
+        } elsif($eth->{dest} eq $host) {
+            ${$cookie->{STAT}}->{R}++;
+            if ($packet =~/START(.+)END/s) {
+                DPrint("RECV ONE : $1");
+                ${$cookie->{STAT}}->{"$1.R"}++;
+            } else {
+                DPrint("RECV ONE");
+            }
+        }
+        #if ($packet =~/START(.+)END/s) {
+        #    ${$cookie->{STAT}}->{"$1.$eth->{src}.T"}++;
+        #    ${$cookie->{STAT}}->{"$1.$eth->{dest}.R"}++;
+        #}
+    };
+    DPrint($@) if ($@);
+    return;
 }
-func tcpdump_stat(i string, stream string)(t int,r int,ts int,rs int) {
-	_ = i
+*/
+func tcpdump_cappkt(info *map[string]string){
+	/*
+    my ($info) = @_;
+    my ($ret,$err);
+    my $pcap = Net::Pcap::pcap_open_live($info->{INT}, 1600, 1, 0, \$ret)
+                or die "Can't open device  : $ret\n";
+    printf "pcap_loop ($pcap): $info->{INT} $info->{host} \n";
+    my $mac = $info->{hostmac};
+    $mac =~ s/(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)/$1:$2:$3:$4:$5:$6/;
+    my $flite = "ether host $mac";
+    #$flite = "vlan $info->{vid} && $flite" if(exists $info->{vid});
+    DPrint("FLITE : $flite");
+    $ret = Net::Pcap::pcap_compile($pcap, \$err,$flite,0,0);
+    if($ret < 0){
+        DPrint("FLITE SET ERROR!!!!!!!!!!!!!!!!!!!!!");
+        return 0 ;
+    }
+    $ret = Net::Pcap::pcap_setfilter($pcap, $err);
+    my $num = 0;
+    while ($num < 1000) {
+        $ret = Net::Pcap::pcap_loop($pcap, 0, \&process_packet, $info);
+        ($ret < 0)?last:($num += $ret);
+        #DPrint(sprintf("Int %s Cap $ret ($num) ",$info->{INT}));
+    }
+    Net::Pcap::pcap_close($pcap);
+    printf "Tid %d is exit\n",threads->tid();
+    sleep 5;
+    */
+}
+
+func tcpdump_open(port string){
+   /*
+    my $ret;
+    print "open $port\n";
+    if (not exists $interface{$port}) {
+        DPrint("Can't find interface \"$port\"");
+        return;
+    }
+    if (not defined $interface{$port}{PCAP}) {
+        $interface{$port}{PCAP} =
+            Net::Pcap::pcap_open_live($interface{$port}{INT}, 1500, 1, 0, \$ret)
+                or die "Can't open device  : $ret\n";
+    }
+    return ;
+    */
+}
+func tcpdump_close(port string){
+    /*
+
+    print "Close $port\n";
+    if (not exists $interface{$port}) {
+        DPrint("Can't find interface \"$port\"");
+        return;
+    }
+    if (defined $interface{$port}{PCAP}) {
+        my $pcap = $interface{$port}{PCAP};
+        Net::Pcap::pcap_close($pcap);
+    }
+    print "Close $port OK\n";
+    delete $interface{$port}{PCAP};
+    return ;*/
+}
+
+func tcpdump_send(port string, packet []byte,num int,timeout int){
+	_ = port
+	_ = packet
+	_ = num
+	_ = timeout
+    /*
+    my $ret = -1;
+    $timeout = 0 if (not defined $timeout);
+    $num = 1 if (not defined $num || $num < 0);
+    DPrint("Send port : $port ($num)");
+    if (matchswitch('-d')) {
+        printBlock(1,0,$packet);
+    }
+    if (not exists $interface{$port}) {
+        return $ret;
+    }
+    if ( not defined $interface{$port}{PCAP}) {
+        tcpdump_open($port);
+    }
+    
+    foreach(1..$num){
+        $ret = Net::Pcap::pcap_sendpacket($interface{$port}{PCAP}, $packet) ;
+        Time::HiRes::sleep($timeout) if($timeout > 0);
+    }
+    
+    return $ret;*/
+}
+
+func tcpdump_clearstatics(stream string) {
 	_ = stream
-	return 1,2,3,4
+    /*
+    our %ntx_data;
+    foreach my $host(keys %{$ntx_data{STA}}){
+        if ($stream == "?ALL") {
+            foreach my $i (keys %{$ntx_data{STA}{$host}{STAT}}){
+                delete $ntx_data{STA}{$host}{STAT}->{$i}; 
+            }
+        }
+        if (exists $ntx_data{STA}{$host}{STAT}->{"$stream.R"}){
+            delete $ntx_data{STA}{$host}{STAT}->{"$stream.R"}
+        }
+        if (exists $ntx_data{STA}{$host}{STAT}->{"$stream.T"}){
+            delete $ntx_data{STA}{$host}{STAT}->{"$stream.T"}
+        }
+    }*/
 }
-func tcpdump_clearstatics(stream string){
-	_ = stream
+//#为这个端口下所有host创建抓包， 以便分析是入向还是出向
+func tcpdump_creat(portin string){
+	_ = portin
+    /*
+    if (not exists $interface{$portin}) {
+        DPrint("Unknow interface \"$portin\"");
+        return;
+    }
+    DPrint("PORT $portin");
+    our %ntx_data;
+    tcpdump_release($portin);
+    foreach my $host(keys %ntx_data){
+        if (not exists $ntx_data{$host}{hostname}){
+            next;
+        }
+        my $port = $ntx_data{$host}{object};  #host对应的接口
+        if (($portin ne $port) &&
+            ($portin ne $ntx_data{$port}{object})) {
+            next;
+        }
+        $ntx_data{CAP}{$host}{STAT} = {R => 0};
+        my $info;
+        $info->{STAT} = \$ntx_data{CAP}{$host}{STAT};
+        $info->{INT} = $interface{$portin}{INT};
+        if (exists $ntx_data{$port}{VlanId}) {
+            $info->{vid} = $ntx_data{$port}{VlanId};
+        }
+        $info->{hostname} = $host;
+        if(exists $ntx_data{$host}{'Ipv6Addr'}){
+            $info->{host} = $ntx_data{$host}{'Ipv6Addr'};
+        } else {
+            $info->{host} = $ntx_data{$host}{'Ipv4Addr'};
+        }
+        $info->{hostmac} = $ntx_data{$host}{'MacAddr'};
+        $info->{hostmac} =~ s/[^\da-fA-F]//sg;
+        #$info->{hostmac} = pack "H*",$info->{hostmac};    
+        share($ntx_data{CAP}{$host}{STAT});
+        #perl 5.8.8 rhel5 中当主线程用socket时，不能用asyn创建线程
+        my $thread = threads->create(\&tcpdump_cappkt,$info);
+        $thread->detach();
+        printf "Create tcpdump thread : %d (%s- %s)\n",
+                                 $thread->tid(),$info->{INT},$host;
+        $thread->detach();
+        $ntx_data{CAP}{$host}{PID} = $thread;
+        printf "Create tcpdump  : %d ($host)\n",,$thread->tid();    
+    }*/
 }
+func tcpdump_cappkt2(info *map[string]string){
+	
+	_ = info
+	/*
+    my ($info) = @_;
+    my ($ret,$err);
+    my $pcap = Net::Pcap::pcap_open_live($info->{INT}, 1500, 1, 0, \$ret)
+                or die "Can't open device  : $ret\n";
+    printf "pcap_loop2 ($pcap): $info->{INT}\n";
+
+    my $num = 0;
+    while ($num < 1000) {
+        $ret = Net::Pcap::pcap_loop($pcap, 0, \&process_packet, $info);
+        ($ret < 0)?last:($num += $ret);
+        #DPrint(sprintf("Int %s Cap $ret ($num) ",$info->{INT}));
+    }
+    Net::Pcap::pcap_close($pcap);
+    printf "Tid2 %d is exit\n",threads->tid();
+    sleep 5;
+    */
+}
+
+//#为这个端口创建抓包引擎
+func tcpdump_start(portin string, flite string){
+	_ = portin
+	_ = flite
+    /*my ($portin,$flite) = @_;
+    if (not exists $interface{$portin}) {
+        DPrint("Unknow interface \"$portin\"");
+        return;
+    }
+    DPrint("PORT $portin");
+    our %ntx_data;
+
+    my $info;
+    $info->{STAT} = \$ntx_data{CAP}{$portin}{STAT};
+    $info->{INT} = $interface{$portin}{INT};
+    $info->{type} = "packet";
+    $info->{flite} = $flite;
+    share($interface{$portin}{STAT});
+    #perl 5.8.8 rhel5 中当主线程用socket时，不能用asyn创建线程
+    my $thread = threads->create(\&tcpdump_cappkt2,$info);
+    $thread->detach();
+    printf "Create2 tcpdump thread : %d (%s)\n",
+                             $thread->tid(),$info->{INT};
+    $ntx_data{CAP}{$portin}{PID}     = $thread;
+    printf "Create tcpdump  : %d ($portin)\n",$thread->tid();
+    
+    return;*/
+}
+
+func tcpdump_stop(port string){
+    /*my ($port) = @_;
+    our %ntx_data;
+    DPrint("tcpdump_stop $port");
+    if (not exists $ntx_data{CAP}{$port}) {
+        return;
+    }
+    my $pid = $ntx_data{CAP}{$port}{PID};
+    if ($pid <= 0) {
+        return;
+    }
+
+    #采用线程时
+    $ntx_data{CAP}{$port}{PID}->kill('KILL');
+    delete $ntx_data{CAP}{$port}{PID};
+    #处理结束*/
+
+}
+func tcpdump_get(port string,index int) string{
+	/*
+    my ($port,$index) = @_;
+    our %ntx_data;
+    DPrint("tcpdump_stop $port $index");
+    if (exists $ntx_data{CAP}{$port}{STAT}->{"CAP$index"}) {
+        return $ntx_data{CAP}{$port}{STAT}->{"CAP$index"};
+    }
+
+    return undef;*/
+	return "123133"
+}
+//#为所有接口释放抓包
+func tcpdump_release(portin string){
+	/*
+    my ($portin) = @_;
+    our %ntx_data;
+    DPrint("RELEASE CAP: $portin");
+    #printStack();
+    #释放所有抓包引擎
+    foreach(keys %{$ntx_data{CAP}}){
+        if (not exists $ntx_data{$_}{hostname}){
+            next;
+        }
+        my $port = $ntx_data{$_}{object};  #host对应的接口
+        if (($portin ne $port) &&
+            ($portin ne $ntx_data{$port}{object})) {
+            next;
+        }
+        DPrint("RELESE CAP : HOST $_");
+        my $pid = $ntx_data{CAP}{$_}{PID};
+        if ($ntx_data{CAP}{$_}{PID} > 0) {
+            DPrint("RELEASE CAP PID: $pid");
+            //#采用线程时
+            $ntx_data{CAP}{$_}{PID}->kill('KILL');
+            delete $ntx_data{CAP}{$_}{PID};
+            //#处理结束
+        }
+    }
+//#释放所有统计引擎
+    foreach(keys %{$ntx_data{STA}}){
+        if (not exists $ntx_data{$_}{hostname}){
+            next;
+        }
+        my $port = $ntx_data{$_}{object};  #host对应的接口
+        if (($portin ne $port) &&
+            ($portin ne $ntx_data{$port}{object})) {
+            next;
+        }
+        DPrint("RELESE CAP : HOST $_");
+        my $pid = $ntx_data{STA}{$_}{PID};
+        if ($ntx_data{STA}{$_}{PID} > 0) {
+            DPrint("RELEASE STA PID: $pid");
+            #采用线程时
+            $ntx_data{CAP}{$_}{PID}->kill('KILL');
+            delete $ntx_data{CAP}{$_}{PID};
+            #处理结束
+        }
+    }*/
+}
+
+//#将所有接口抓包进行统计，计算总和
+func tcpdump_stat(portin string, stream string)(t int,r int,ts int,rs int){
+    /*my ($portin,$stream) = @_;
+    my ($t,$r,$ts,$rs) = (0,0,0,0);
+    our %ntx_data;
+    print "Get port stat : $portin $stream\n";
+    foreach my $host(keys %{$ntx_data{STA}}){
+        if (defined $stream) {
+            if (exists $ntx_data{STA}{$host}{STAT}->{"$stream.T"}) {
+                $t += $ntx_data{STA}{$host}{STAT}->{"$stream.T"};
+            }
+            if (exists $ntx_data{STA}{$host}{STAT}->{"$stream.R"}) {
+                $r += $ntx_data{STA}{$host}{STAT}->{"$stream.R"};
+            }
+        } else {
+            $t += $ntx_data{STA}{$host}{STAT}->{T};
+            $r += $ntx_data{STA}{$host}{STAT}->{R};
+            foreach my $stream1 (keys(%{$ntx_data{STA}{$host}{STAT}})) {
+                print "=== $stream1 ====\n";
+                if ($stream1 =~ /\.T/) {
+                    $ts += $ntx_data{STA}{$host}{STAT}->{$stream1};
+                } elsif ($stream1 =~ /\.R/) {
+                    $rs += $ntx_data{STA}{$host}{STAT}->{$stream1};
+                }
+            }
+        }
+        
+    }
+    return ($t,$r,$ts,$rs);*/
+    return 1,2,3,4
+}
+
+
+func tcpdump_delport(port string){
+	
+    portv,ok := IntferfaceAll[port]
+    if !ok {
+        return
+    }
+    _ = portv
+    tcpdump_close(port)
+    /*
+    if (exists $interface{$port}{ARPD}{PID}) {
+        my $pid = $interface{$port}{ARPD}{PID};
+        if ($pid > 0) {
+            DPrint("RELEASE CAP PID: $pid");
+            #采用进程时
+            kill 9,$pid;
+            $pid = waitpid $pid,0;
+            DPrint("PID $pid is over");
+            
+            close $interface{$port}{ARPD}{PIPE}{R};
+            close $interface{$port}{ARPD}{PIPE}{W};
+            $interface{$port}{ARPD}{PIPE}{R} = undef;
+            $interface{$port}{ARPD}{PIPE}{W} = undef;
+            $interface{$port}{ARPD}{PID} = undef;
+            delete $interface{$port}{ARPD}{PIPE};
+        }
+        
+        delete $interface{$port};
+    }*/
+}
+
 
 var ntx_data map[string]interface{};
 func sim_ntx_init() {
@@ -267,7 +860,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := ntx_data[eng];ok {
         	engv := ntx_data[eng].(map[string]string)
             if engv["statype"] == "analysis" {
-                tcpdump_start(engv["object"]); //在抓包引擎的接口上抓
+                tcpdump_start(engv["object"],""); //在抓包引擎的接口上抓
             }
         }
     }else if order == "stopcapture" {
@@ -285,7 +878,8 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             fmt.Printf("%-10s%s\n","PacketIndex        :",data["packetindex"])
             eng := data["object"];
             engv := ntx_data[eng].(map[string]string)
-            istring := tcpdump_get(engv["object"],data["packetindex"]);
+            packetindex,_ := strconv.Atoi(data["packetindex"])
+            istring := tcpdump_get(engv["object"],packetindex)
             if "" != istring {
                 ilen,_ := socket.WriteToUDP([]byte(istring),client)    
 	            fmt.Printf("Send:OK:%s(%d)\n",istring,ilen)
@@ -559,8 +1153,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         }
     }else if order == "cleanuptest" {
         //无法删除线程，暂不清除port
-        for port,_ := range(intf) {
-        	portinfo := intf[port]
+        for port,portinfo := range(IntferfaceAll) {
         	if portinfo.object != "" {
 	        	continue
         	}
@@ -572,7 +1165,7 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["object"];ok {
             fmt.Printf("%-10s%s\n","ResetSession  :", data["object"])
             fmt.Println("------ResetSession--before--")
-            fmt.Println(&ntx_data,&intf)
+            //fmt.Println(&ntx_data,&portinfo)
             //str = `ps -ef | grep udpr`
             //DPrint($str)
             fmt.Println("------ResetSession----------");
@@ -598,7 +1191,7 @@ func ntx_int_init (intfp *map[string]string) {
 
     port := (*intfp)["portname"]
     
-    if _,ok := intf[port];ok {
+    if _,ok := IntferfaceAll[port];ok {
         fmt.Printf("Delete old port %s\n",port)
         tcpdump_delport(port)
     }
@@ -607,30 +1200,31 @@ func ntx_int_init (intfp *map[string]string) {
     if ok,_ := regexp.MatchString(`^\d+$`, index);ok {
         //#may be interface name ex:virbr0
         log.Printf("Interface %s is created!\n",index);
-        intf[port].intf = index;
-        intf[port].porttype = (*intfp)["porttype"]
-        intf[port].portlocation = (*intfp)["portlocation"]
-        intf[port].object = (*intfp)["object"]
+        IntferfaceAll[port] = &InterfaceInfo{intf : index,
+			        	porttype : (*intfp)["porttype"],
+			        	portlocation : (*intfp)["portlocation"],
+			        	object : (*intfp)["object"]}
         return 
     }
     devs,_ := pcap.FindAllDevs()
     index_int,_ := strconv.Atoi(index)
     if (index_int <=0 || index_int > len(devs)) {
         log.Printf("interface %d is not exists!\n",index_int);
-        return 0;
+        return
     }
-    if _,ok := intf[port];ok {
+    if _,ok := IntferfaceAll[port];ok {
         log.Printf("interface %s is exists!\n",port);
-        log.Printf("%v\n",intf[port]);
-        if devs[index_int-1].name != intf[port].intf {
+        log.Printf("%v\n",IntferfaceAll[port]);
+        if devs[index_int-1].Name != IntferfaceAll[port].intf {
             log.Printf("INTERFACE is change ：unsupport, please reboot server");
         }
     }
     log.Printf("interface %s is $devs[$index-1]!",index);
-    intf[port].intf = devs[index-1];
-    intf[port].porttype = (*intfp)["porttype"]
-    intf[port].portlocation = (*intfp)["portlocation"]
-    intf[port].object = (*intfp)["object"]
+	IntferfaceAll[port]  = &InterfaceInfo{
+		        	intf : devs[index_int-1].Name,
+		        	porttype : (*intfp)["porttype"],
+		        	portlocation : (*intfp)["portlocation"],
+		        	object : (*intfp)["object"]}
     
 }
 //#重置 CHASSIS1
