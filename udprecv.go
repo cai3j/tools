@@ -391,36 +391,6 @@ func tcpdump_arpd(port string,ip string,mac string,vlan int){
     
     arparg := fmt.Sprintf("%s:%s:%d", mac, ip,vlan)
     chan_order <- OrderChan{"add",arparg}
-    
-    /*
-    my $thread = $interface{$port}{PID};
-    if (not defined $thread) {
-        my $info;
-        my %arpd :shared;
-        my %arp :shared;
-        my %ping :shared;
-        $interface{$port}{arpd}{num} = 0;
-        $info->{pcap} = $interface{$port}{PCAP};
-        $info->{arpd} = \%arpd;
-        $info->{arp} = \%arp;
-        $info->{ping} = \%ping;
-        $interface{$port}{arpd} = \%arpd;
-        $interface{$port}{arp} = \%arp;
-        $interface{$port}{ping} = \%ping;
-        $info->{INT}  = $port;
-        $thread = threads->create(\&tcpdump_caparp,$info);
-        $thread->detach();
-        printf "Create arpd thread : %d (%s)\n",
-                                     $thread->tid(),$port;
-        $interface{$port}{PID} = $thread;
-    }
-    if (defined $ip && defined $mac) {
-        lock($interface{$port}{arpd});
-        $vlan = 0 if (not defined $vlan);
-        $mac =~ s/[^0-9a-fA-F]//g;
-        ${$interface{$port}{arpd}}{$ip.':'.$vlan} = $mac;
-    }
-    return*/
 }
 /*
 sub process_packet{
