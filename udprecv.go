@@ -9,6 +9,7 @@ import (
 	_ "time"
 	"regexp"
 	"strings"
+	"bytes"
 	"log"
 	"os"
 	_ "os/exec"
@@ -332,7 +333,7 @@ func tcpdump_caparp(info map[string]interface{}){
 	pcap_src := gopacket.NewPacketSource(pcap_handle, layers.LayerTypeEthernet) //读取报文
 	packet_in := pcap_src.Packets()
 	type MacInfo struct{ip string;vlan int}
-	arpd := make(map[string]MacInfo)
+	arpd := make(map[MacInfo]net.HardwareAddr)
 	
 	for {
 		var packet gopacket.Packet
@@ -344,14 +345,45 @@ func tcpdump_caparp(info map[string]interface{}){
 				arpadd :=arpadd_regexp.FindStringSubmatch(order.arg)
 				if len(arpadd) > 0 {
 					vlan,_ := strconv.Atoi(arpadd[3])
-					arpd[arpadd[1]] = MacInfo{arpadd[2],vlan}
-					log.Printf("Read a arp : %v",arpd[arpadd[1]])
+					ip := string(net.ParseIP(arpadd[2]))
+					mac,_ := net.ParseMAC(arpadd[1])
+					ipid := MacInfo{ip,vlan}
+					arpd[ipid] = mac
+					log.Printf("Read a arp : %v(%v)",arpd[ipid],ipid)
 				} 
 			}else if order.o == "quit" {
 				break
 			}
 		case packet = <-packet_in:
+			log.Printf("=========================\n")
+			log.Printf("%v\n",arpd)
+			log.Printf("=========================\n")
 			log.Printf("pkt : %+v", packet)
+			arplayer := packet.Layer(layers.LayerTypeARP)
+			
+			if arplayer != nil {
+				arp := arplayer.(*layers.ARP)
+				//log.Printf("arp : %+v",arp)
+				if arp.Operation == layers.ARPRequest && 
+				   arp.Protocol == layers.EthernetTypeIPv4 &&
+				   bytes.Equal(arp.DstHwAddress,[]byte{0,0,0,0,0,0}) {
+				   	log.Printf("=========================\n")
+					log.Printf("Req IP : %v source mac \n",
+						net.IP(arp.DstProtAddress),net.HardwareAddr(arp.SourceHwAddress))
+					macinfo1 := MacInfo{string(net.IP(arp.DstProtAddress).To16()),0}
+					_,ok := arpd[macinfo1]
+					if ok{
+						log.Printf("Find a mac for req : %v\n",arpd[macinfo1])
+					}
+					
+				}
+				continue
+			}
+			icmp := packet.Layer(layers.LayerTypeICMPv4)
+			if icmp != nil {
+				log.Printf("icmp : %+v",icmp)
+				continue
+			}
 			//icmp := icmpLayer.(*layers.ICMPv4)
 			//log.Printf("%+v",icmp)
 		}

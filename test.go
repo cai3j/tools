@@ -354,6 +354,15 @@ func ExeNet(args []string) error {
 		fmt.Printf("scan : %+v\n", iface)
 		scan(&iface)
 	}
+	type infos struct{a net.IP;b int}
+	ip := net.ParseIP("192.168.199.10")
+	ip2 := net.IP([]byte{192,168,199,10})
+	ip2 = ip2.To16()
+	fmt.Printf("IP(192.168.199.10): %v\n",infos{ip,1})
+	fmt.Printf("IP(192.168.199.10): %v\n",infos{ip2,1})
+	ip = net.ParseIP("100::1")
+	fmt.Printf("IP(100::1): %v\n",infos{ip,1})
+	
 	return nil
 }
 
