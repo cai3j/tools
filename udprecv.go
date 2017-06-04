@@ -319,6 +319,45 @@ sub process_arp{
     return;
 }
 */
+func tcpdump_sendArp(handle *pcap.Handle, 
+					srcmac []byte,
+					dstmac []byte,
+					srcip  []byte,
+					dstip  []byte) error {
+	// Set up all the layers' fields we can.
+	
+	eth := layers.Ethernet{
+		SrcMAC:       net.HardwareAddr(srcmac),
+		DstMAC:       net.HardwareAddr(dstmac),
+		EthernetType: layers.EthernetTypeARP,
+	}
+	
+	arp := layers.ARP{
+		AddrType:          layers.LinkTypeEthernet,
+		Protocol:          layers.EthernetTypeIPv4,
+		HwAddressSize:     6,
+		ProtAddressSize:   4,
+		Operation:         layers.ARPReply,
+		SourceHwAddress:   srcmac,
+		SourceProtAddress: srcip,
+		DstHwAddress:      dstmac,
+		DstProtAddress:    dstip,
+	}
+	
+	// Set up buffer and options for serialization.
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+	// Send one packet.
+	gopacket.SerializeLayers(buf, opts, &eth, &arp)
+	if err := handle.WritePacketData(buf.Bytes()); err != nil {	
+		return err
+	}
+
+	return nil
+}
 func tcpdump_caparp(info map[string]interface{}){
 	pcap_handle := info["pcap"].(*pcap.Handle)
 	fliter := "arp or icmp or icmp6 or (vlan and (arp or icmp or icmp6))"
@@ -375,7 +414,11 @@ func tcpdump_caparp(info map[string]interface{}){
 					if ok{
 						log.Printf("Find a mac for req : %v\n",arpd[macinfo1])
 					}
-					
+					tcpdump_sendArp(pcap_handle,
+								[]byte(arpd[macinfo1]),
+								arp.SourceHwAddress,
+								arp.DstProtAddress,
+								arp.SourceProtAddress)
 				}
 				continue
 			}
@@ -390,7 +433,7 @@ func tcpdump_caparp(info map[string]interface{}){
 	}
 	log.Printf("Tid is exit\n")
 }
-
+		
 func tcpdump_arpd(port string,ip string,mac string,vlan int){
 	log.Printf("arpd :port %s, ip %s, mac %s, vlan %d", port,ip,mac,vlan)
 	portv,ok := InterfaceAll[port]
