@@ -359,6 +359,13 @@ func tcpdump_sendArp(handle *pcap.Handle,
 	}
 	return nil
 }
+					
+/*func tcpdump_sendPingReply (handle *pcap.Handle, packet gopacket.Packet) {
+	iplayer := packet.Layer(layers.LayerTypeIPv4)
+	ip := 
+	
+}*/
+
 func tcpdump_caparp(info map[string]interface{}){
 	pcap_handle := info["pcap"].(*pcap.Handle)
 	fliter := "arp or icmp or icmp6 or (vlan and (arp or icmp or icmp6))"
@@ -431,12 +438,32 @@ func tcpdump_caparp(info map[string]interface{}){
 			if icmplayer != nil {
 				log.Printf("icmp : %+v",icmplayer)
 				icmp := icmplayer.(*layers.ICMPv4)
-				_ = icmp
-				if icmp.TypeCode == layers.ICMPv4TypeEchoRequest {
+				if icmp.TypeCode.Type() == layers.ICMPv4TypeEchoRequest {
+					ethlayer := packet.Layer(layers.LayerTypeEthernet)
+					eth := ethlayer.(*layers.Ethernet)
 					iplayer := packet.Layer(layers.LayerTypeIPv4)
 					ip := iplayer.(*layers.IPv4)
-					_ = ip
+					
+					eth.SrcMAC,eth.DstMAC = eth.DstMAC,eth.SrcMAC
+					ip.SrcIP,ip.DstIP = ip.DstIP,ip.SrcIP
+					icmp.TypeCode = layers.CreateICMPv4TypeCode(layers.ICMPv4TypeEchoReply,0)
+					
+					//eth.SerializeTo(
+					buf := gopacket.NewSerializeBuffer()
+					opts := gopacket.SerializeOptions{
+						FixLengths:       true,
+						ComputeChecksums: true,
+					}
+					
+					// Send one packet.
+					eth.SerializeTo(buf,opts)
+					ip.SerializeTo(buf,opts)
+					icmp.SerializeTo(buf,opts)
+					err := pcap_handle.WritePacketData(buf.Bytes())
+					log.Printf("WritePacketData return : %v", err)
+					log.Printf("eth : %+v", eth)
 					log.Printf("ip : %+v", ip)
+					
 				}
 				continue
 			}
