@@ -325,6 +325,8 @@ func tcpdump_sendArp(handle *pcap.Handle,
 					srcip  []byte,
 					dstip  []byte) error {
 	// Set up all the layers' fields we can.
+	log.Printf("Srcmac : %v dstmac : %v\n",srcmac,dstmac)
+	log.Printf("Srcip : %v dstip : %v\n",srcip,dstip)
 	
 	eth := layers.Ethernet{
 		SrcMAC:       net.HardwareAddr(srcmac),
@@ -355,7 +357,6 @@ func tcpdump_sendArp(handle *pcap.Handle,
 	if err := handle.WritePacketData(buf.Bytes()); err != nil {	
 		return err
 	}
-
 	return nil
 }
 func tcpdump_caparp(info map[string]interface{}){
@@ -371,9 +372,13 @@ func tcpdump_caparp(info map[string]interface{}){
 	_ = chan_ret
 	pcap_src := gopacket.NewPacketSource(pcap_handle, layers.LayerTypeEthernet) //读取报文
 	packet_in := pcap_src.Packets()
-	type MacInfo struct{ip string;vlan int}
-	arpd := make(map[MacInfo]net.HardwareAddr)
 	
+	type MacInfo struct{ip string;vlan int}
+	type PingResult struct{num int; timestep []int}
+	
+	arpd := make(map[MacInfo]net.HardwareAddr)
+	pingc := make(map[MacInfo]PingResult)
+	_ = pingc
 	for {
 		var packet gopacket.Packet
 		var order struct{o string;arg string}
@@ -398,8 +403,8 @@ func tcpdump_caparp(info map[string]interface{}){
 			log.Printf("%v\n",arpd)
 			log.Printf("=========================\n")
 			log.Printf("pkt : %+v", packet)
-			arplayer := packet.Layer(layers.LayerTypeARP)
 			
+			arplayer := packet.Layer(layers.LayerTypeARP)
 			if arplayer != nil {
 				arp := arplayer.(*layers.ARP)
 				//log.Printf("arp : %+v",arp)
@@ -422,10 +427,24 @@ func tcpdump_caparp(info map[string]interface{}){
 				}
 				continue
 			}
-			icmp := packet.Layer(layers.LayerTypeICMPv4)
-			if icmp != nil {
-				log.Printf("icmp : %+v",icmp)
+			icmplayer := packet.Layer(layers.LayerTypeICMPv4)
+			if icmplayer != nil {
+				log.Printf("icmp : %+v",icmplayer)
+				icmp := icmplayer.(*layers.ICMPv4)
+				_ = icmp
+				if icmp.TypeCode == layers.ICMPv4TypeEchoRequest {
+					iplayer := packet.Layer(layers.LayerTypeIPv4)
+					ip := iplayer.(*layers.IPv4)
+					_ = ip
+					log.Printf("ip : %+v", ip)
+				}
 				continue
+			}
+			icmpv6layer := packet.Layer(layers.LayerTypeICMPv6)
+			if icmpv6layer != nil {
+				log.Printf("icmpv6 : %+v",icmpv6layer)
+				icmpv6 := icmpv6layer.(*layers.ICMPv6)
+				_ = icmpv6
 			}
 			//icmp := icmpLayer.(*layers.ICMPv4)
 			//log.Printf("%+v",icmp)
