@@ -459,11 +459,11 @@ func tcpdump_caparp(info map[string]interface{}){
 					eth.SerializeTo(buf,opts)
 					ip.SerializeTo(buf,opts)
 					icmp.SerializeTo(buf,opts)
-					err := pcap_handle.WritePacketData(buf.Bytes())
-					log.Printf("WritePacketData return : %v", err)
+					log.Printf("Packet Date : %v", buf.Bytes())
+					//err := pcap_handle.WritePacketData(buf.Bytes())
+					//log.Printf("WritePacketData return : %v", err)
 					log.Printf("eth : %+v", eth)
 					log.Printf("ip : %+v", ip)
-					
 				}
 				continue
 			}
