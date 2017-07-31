@@ -419,13 +419,14 @@ func tcpdump_caparp(info map[string]interface{}){
 				   arp.Protocol == layers.EthernetTypeIPv4 &&
 				   bytes.Equal(arp.DstHwAddress,[]byte{0,0,0,0,0,0}) {
 				   	log.Printf("=========================\n")
-					log.Printf("Req IP : %v source mac \n",
+					log.Printf("Req IP : %v source mac %v\n",
 						net.IP(arp.DstProtAddress),net.HardwareAddr(arp.SourceHwAddress))
 					macinfo1 := MacInfo{string(net.IP(arp.DstProtAddress).To16()),0}
 					_,ok := arpd[macinfo1]
-					if ok{
-						log.Printf("Find a mac for req : %v\n",arpd[macinfo1])
+					if true != ok{
+						continue	
 					}
+					log.Printf("Find a mac for req : %v\n",arpd[macinfo1])
 					tcpdump_sendArp(pcap_handle,
 								[]byte(arpd[macinfo1]),
 								arp.SourceHwAddress,
@@ -443,10 +444,16 @@ func tcpdump_caparp(info map[string]interface{}){
 					eth := ethlayer.(*layers.Ethernet)
 					iplayer := packet.Layer(layers.LayerTypeIPv4)
 					ip := iplayer.(*layers.IPv4)
-					
+					macinfo1 := MacInfo{string(ip.DstIP.To16()),0}
+					_,ok := arpd[macinfo1]
+					if !ok{
+						continue
+					}
+					log.Printf("Find a mac for req : %v\n",arpd[macinfo1])
 					eth.SrcMAC,eth.DstMAC = eth.DstMAC,eth.SrcMAC
 					ip.SrcIP,ip.DstIP = ip.DstIP,ip.SrcIP
 					icmp.TypeCode = layers.CreateICMPv4TypeCode(layers.ICMPv4TypeEchoReply,0)
+					
 					
 					//eth.SerializeTo(
 					buf := gopacket.NewSerializeBuffer()
