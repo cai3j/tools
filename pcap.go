@@ -154,6 +154,7 @@ func ExePacket(args []string) error {
 	// Open up a pcap handle for packet reads/writes.
 	handle, err := pcap.OpenLive(args[0], 65536, true, pcap.BlockForever) // 打开pcap的接口
 	if err != nil {
+		log.Printf("%v", err)
 		return err
 	}
 	defer handle.Close()
@@ -193,6 +194,19 @@ func ExePacket(args []string) error {
 			if first.LayerType() == layers.LayerTypeEthernet {
 				eth := first.(*layers.Ethernet)
 				fmt.Printf("this is ethernet srcMac:%v\n", eth.SrcMAC)
+				buf := gopacket.NewSerializeBuffer()
+				opts := gopacket.SerializeOptions{
+					FixLengths:       true,
+					ComputeChecksums: true,
+				}
+				
+				iplayer := packet.Layer(layers.LayerTypeIPv4)
+				ip := iplayer.(*layers.IPv4)
+				ip.SerializeTo(buf, opts)
+				fmt.Printf("int :  %v (%d)\n", buf.Bytes(),len(buf.Bytes()))
+				eth.SerializeTo(buf, opts)
+				fmt.Printf("int :  %v (%d)\n", buf.Bytes(),len(buf.Bytes()))
+				
 			}
 			fmt.Printf("Second layer type : %v\n", 1)
 			//ethlayer := packet.Layer(layers.LayerTypeEthernet)

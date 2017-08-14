@@ -461,11 +461,18 @@ func tcpdump_caparp(info map[string]interface{}){
 						FixLengths:       true,
 						ComputeChecksums: true,
 					}
-					
+
 					// Send one packet.
-					eth.SerializeTo(buf,opts)
-					ip.SerializeTo(buf,opts)
+					bytes, err := buf.PrependBytes(len(icmp.Payload))
+					if err != nil {
+						return err
+					}
+					copy(bytes, icmp.Payload)
 					icmp.SerializeTo(buf,opts)
+					ip.SerializeTo(buf,opts)
+					eth.SerializeTo(buf,opts)
+					
+					
 					err := pcap_handle.WritePacketData(buf.Bytes())
 					log.Printf("WritePacketData return : %v", err)
 					log.Printf("eth : %+v", eth)

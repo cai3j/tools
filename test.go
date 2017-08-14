@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	_ "github.com/google/gopacket"
+	"github.com/google/gopacket"
 	_ "github.com/google/gopacket/layers"
 	// "github.com/google/gopacket/pcap"
 	"log"
@@ -213,6 +213,21 @@ func ExeTest(args []string) error {
 	fmt.Printf("struct %v, %v\n", structmap, structmap["s1"].str2)
 	testGlobal()
 	fmt.Printf("struct %v, %v\n", structmap, structmap["s1"].str2)
+	fmt.Println("=================packet buffer===================")
+	//eth.SerializeTo(
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+	_ = opts
+	var payload []byte = []byte{2,3,5,6}
+	bytes, err := buf.PrependBytes(len(payload))
+	if err != nil {
+		return err
+	}
+	copy(bytes,payload)
+	fmt.Printf("int :  %v (%d)\n", buf.Bytes(),len(buf.Bytes()))
 	return nil
 }
 
