@@ -6,8 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
+	_ "github.com/google/gopacket/layers"
+	// "github.com/google/gopacket/pcap"
 	"log"
 	"net"
 	"os"
@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
+	_ "sync"
 	"time"
 )
 
@@ -77,134 +77,9 @@ func cliOrder(order_chan chan string) {
 	os.Exit(0)
 }
 
-func readPacket(handle *pcap.Handle, stop chan string) {
-	src := gopacket.NewPacketSource(handle, layers.LayerTypeEthernet) //读取报文
-	in := src.Packets()
-	for {
-		var packet gopacket.Packet
-		var order string
-		select {
-		case order = <-stop: // 如果是读到停止， 就返回
-			log.Print("Read a command : ", order)
-			if order == "quit" {
-				return
-			}
-		case packet = <-in:
-			icmpLayer := packet.Layer(layers.LayerTypeICMPv4)
-			if icmpLayer == nil {
-				continue
-			}
-			log.Printf("pkt : %+v", packet)
-			//icmp := icmpLayer.(*layers.ICMPv4)
-			//log.Printf("%+v",icmp)
-		}
-	}
-}
-
-func ExePcap(args []string) {
-	log.Printf("ExePcap args : %v", args)
-	if len(args) > 0 {
-		devs, _ := pcap.FindAllDevs()
-		for i, v := range devs {
-			fmt.Printf("%d : %v(%s)\n", i, v, reflect.TypeOf(v))
-			fmt.Printf("%d : %v(%s)\n", i, devs[i], devs[i].Name)
-		}
-
-		return
-	}
-
-	intfs, err := net.Interfaces()
-	if err != nil {
-		panic(err)
-	}
-	//fmt.Printf("inter %+v\n", intfs)
-	for _, intf := range intfs {
-		fmt.Printf("inter %v : %+v\n", intf.Name, intf)
-	}
-
-	fmt.Println("Select a interface : ", *intf)
-
-	handle, err := pcap.OpenLive(*intf, 65536, true, pcap.BlockForever)
-	if err != nil {
-		panic(err)
-	}
-	defer handle.Close()
-	var wg sync.WaitGroup
-
-	order_chan := make(chan string)
-	go func() {
-		cliOrder(order_chan)
-	}()
-	defer close(order_chan)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		readPacket(handle, order_chan)
-		log.Print("Read packet done!")
-	}()
-	log.Print("Init OK!")
-	wg.Wait()
-}
-
 func ExePacket(args []string) error {
 	fmt.Printf("test order : %v\n", args)
-	order_chan := make(chan string)
-	go cliOrder(order_chan)
-	defer close(order_chan)
-	// Open up a pcap handle for packet reads/writes.
-	handle, err := pcap.OpenLive(args[0], 65536, true, pcap.BlockForever) // 打开pcap的接口
-	if err != nil {
-		return err
-	}
-	defer handle.Close()
-	src := gopacket.NewPacketSource(handle, layers.LayerTypeEthernet) //读取报文
-	in := src.Packets()
-	for {
-		var packet gopacket.Packet
-		var orderin string
-		select {
-		case orderin = <-order_chan:
-			fmt.Printf("order is %v", orderin)
-			//return
-		case packet = <-in:
-			fmt.Println("------------------------------------")
-			fmt.Println(packet.String())
-			//fmt.Println(packet.Dump())
-			fmt.Println("------------------------------------")
-			for i, k := range packet.Layers() {
-				fmt.Printf("%d : type %s\n", i, k.LayerType())
-				if k.LayerType() == layers.LayerTypeEthernet {
-					eth := k.(*layers.Ethernet)
-					fmt.Printf("   this is ethernet srcMac:%s, dstMac:%s\n",
-						net.HardwareAddr(eth.SrcMAC),
-						net.HardwareAddr(eth.DstMAC))
-				} else if k.LayerType() == layers.LayerTypeIPv4 {
-					ip4 := k.(*layers.IPv4)
-					fmt.Printf("   this is ipv4 src : %s, dst : %s\n",
-						ip4.SrcIP, ip4.DstIP)
-				}
-
-			}
-			fmt.Println("------------------------------------")
-			first := packet.LinkLayer()
-
-			fmt.Printf("first layer type : %v , %v\n",
-				reflect.TypeOf(first), reflect.TypeOf(first.LayerType()))
-			if first.LayerType() == layers.LayerTypeEthernet {
-				eth := first.(*layers.Ethernet)
-				fmt.Printf("this is ethernet srcMac:%v\n", eth.SrcMAC)
-			}
-			fmt.Printf("Second layer type : %v\n", 1)
-			//ethlayer := packet.Layer(layers.LayerTypeEthernet)
-			//fmt.Printf("Eth type : %v\n",ethlayer)
-			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
-				fmt.Println("This is a TCP packet!")
-			}
-			//log.Printf("IP %v is at %v", net.IP(arp.SourceProtAddress),
-			//	net.HardwareAddr(arp.SourceHwAddress))
-		}
-	}
+	return nil
 }
 
 var retmap map[string]interface{}
@@ -338,6 +213,21 @@ func ExeTest(args []string) error {
 	fmt.Printf("struct %v, %v\n", structmap, structmap["s1"].str2)
 	testGlobal()
 	fmt.Printf("struct %v, %v\n", structmap, structmap["s1"].str2)
+	fmt.Println("=================packet buffer===================")
+	//eth.SerializeTo(
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+	_ = opts
+	var payload []byte = []byte{2,3,5,6}
+	bytes, err := buf.PrependBytes(len(payload))
+	if err != nil {
+		return err
+	}
+	copy(bytes,payload)
+	fmt.Printf("int :  %v (%d)\n", buf.Bytes(),len(buf.Bytes()))
 	return nil
 }
 
@@ -625,8 +515,6 @@ func main() {
 		ExeUdps(args)
 	case "udpc":
 		ExeUdpc(args)
-	case "pcap":
-		ExePcap(args)
 	case "cli":
 		ExeCli(args)
 	default:

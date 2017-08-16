@@ -410,7 +410,8 @@ func tcpdump_caparp(info map[string]interface{}){
 			log.Printf("%v\n",arpd)
 			log.Printf("=========================\n")
 			log.Printf("pkt : %+v", packet)
-			
+			var payload gopacket.Payload
+			_ = payload
 			arplayer := packet.Layer(layers.LayerTypeARP)
 			if arplayer != nil {
 				arp := arplayer.(*layers.ARP)
@@ -461,14 +462,21 @@ func tcpdump_caparp(info map[string]interface{}){
 						FixLengths:       true,
 						ComputeChecksums: true,
 					}
-					
+
 					// Send one packet.
-					eth.SerializeTo(buf,opts)
-					ip.SerializeTo(buf,opts)
+					bytes, err := buf.PrependBytes(len(icmp.Payload))
+					if err != nil {
+						return err
+					}
+					copy(bytes, icmp.Payload)
+					
 					icmp.SerializeTo(buf,opts)
-					log.Printf("Packet Date : %v", buf.Bytes())
-					//err := pcap_handle.WritePacketData(buf.Bytes())
-					//log.Printf("WritePacketData return : %v", err)
+					ip.SerializeTo(buf,opts)
+					eth.SerializeTo(buf,opts)
+					
+					err := pcap_handle.WritePacketData(buf.Bytes())
+					log.Printf("WritePacketData return : %v", err)
+
 					log.Printf("eth : %+v", eth)
 					log.Printf("ip : %+v", ip)
 				}
