@@ -151,12 +151,27 @@ func ExePacket(args []string) error {
 	order_chan := make(chan string)
 	go cliOrder(order_chan)
 	defer close(order_chan)
-	// Open up a pcap handle for packet reads/writes.
-	handle, err := pcap.OpenLive(args[0], 65536, true, pcap.BlockForever) // 打开pcap的接口
+	
+	var handle *pcap.Handle
+	var err error
+	if args[0] == "interface" {
+		// Open up a pcap handle for packet reads/writes.
+		handle, err = pcap.OpenLive(args[0], 65536, true, pcap.BlockForever) // 打开pcap的接口
+	} else if args[0] == "file" {
+		if len(args) <=1{
+			log.Printf("Argument error!")
+			return nil
+		}
+		handle, err = pcap.OpenOffline(args[1])
+	} else {
+		log.Printf("Argument error!")
+	}
+	
 	if err != nil {
 		log.Printf("%v", err)
 		return err
 	}
+	
 	defer handle.Close()
 	src := gopacket.NewPacketSource(handle, layers.LayerTypeEthernet) //读取报文
 	in := src.Packets()
@@ -213,6 +228,9 @@ func ExePacket(args []string) error {
 			//fmt.Printf("Eth type : %v\n",ethlayer)
 			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 				fmt.Println("This is a TCP packet!")
+				fmt.Printf("tcplayer :%v\n",tcpLayer)
+				tcp := tcpLayer.(*layers.TCP)
+				fmt.Printf("tcp :%v\n",tcp)
 			}
 			//log.Printf("IP %v is at %v", net.IP(arp.SourceProtAddress),
 			//	net.HardwareAddr(arp.SourceHwAddress))
