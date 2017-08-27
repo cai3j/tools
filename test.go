@@ -253,6 +253,7 @@ func ExeNet(args []string) error {
 	ip = net.ParseIP("100::1")
 	fmt.Printf("IP(100::1): %v\n",infos{ip,1})
 	
+	
 	return nil
 }
 
@@ -476,6 +477,11 @@ func ExeUdpc(args []string) {
 	fmt.Printf("%s\n", data)
 	datastring := string(data[:read])
 	fmt.Printf("%s %v\n", datastring, len(datastring))
+}
+
+func ExeRestfulS(args []string) {
+	log.Printf("ExeUdpc args : %v", args)
+	
 }
 
 func main() {
