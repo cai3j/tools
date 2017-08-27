@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"github.com/google/gopacket"
@@ -221,13 +222,14 @@ func ExeTest(args []string) error {
 		ComputeChecksums: true,
 	}
 	_ = opts
-	var payload []byte = []byte{2,3,5,6}
+	var payload []byte = []byte{2,3,5,6,123,64,62,30,31,32,33,34,56,67,33,3,3,3,3}
 	bytes, err := buf.PrependBytes(len(payload))
 	if err != nil {
 		return err
 	}
 	copy(bytes,payload)
 	fmt.Printf("int :  %v (%d)\n", buf.Bytes(),len(buf.Bytes()))
+	fmt.Printf("Hex : \n%s\n", hex.Dump(payload))
 	return nil
 }
 
@@ -286,6 +288,7 @@ func ExeStr(args []string) error {
 	var str1 string = "123"
 	var str2 string = "123"
 	var int1 int = 123
+	
 	_ = int1
 	fmt.Printf("Compare %v\n", strings.Compare(str1, str2))
 	fmt.Printf("A + B =  %v\n", str1+str2)
