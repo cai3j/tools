@@ -16,6 +16,7 @@ import (
 	"bufio"
 	"sync"
 	"encoding/binary"
+	"encoding/hex"
     "github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -464,15 +465,24 @@ func tcpdump_caparp(info map[string]interface{}){
 					}
 
 					// Send one packet.
-					bytes, err := buf.PrependBytes(len(icmp.Payload))
-					if err != nil {
-						return err
-					}
-					copy(bytes, icmp.Payload)
-					
+					//bytes, err := buf.PrependBytes(len(icmp.Payload))
+					//if err != nil {
+					//	return
+					//}
+					//copy(bytes, icmp.Payload)
+					var payload gopacket.Payload = icmp.Payload
+					payload.SerializeTo(buf, opts)
+					//fmt.Println("----------------------------------")
+					//fmt.Print(hex.Dump(buf.Bytes()))
 					icmp.SerializeTo(buf,opts)
+					//fmt.Println("----------------------------------")
+					//fmt.Print(hex.Dump(buf.Bytes()))
 					ip.SerializeTo(buf,opts)
+					//fmt.Println("----------------------------------")
+					//fmt.Print(hex.Dump(buf.Bytes()))
 					eth.SerializeTo(buf,opts)
+					fmt.Println("----------------------------------")
+					fmt.Print(hex.Dump(buf.Bytes()))
 					
 					err := pcap_handle.WritePacketData(buf.Bytes())
 					log.Printf("WritePacketData return : %v", err)
