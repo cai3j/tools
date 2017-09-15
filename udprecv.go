@@ -407,10 +407,10 @@ func tcpdump_caparp(info map[string]interface{}){
 				break
 			}
 		case packet = <-packet_in:
-			log.Printf("=========================\n")
-			log.Printf("%v\n",arpd)
-			log.Printf("=========================\n")
-			log.Printf("pkt : %+v", packet)
+			//log.Printf("=========================\n")
+			//log.Printf("%v\n",arpd)
+			//log.Printf("=========================\n")
+			//log.Printf("pkt : %+v", packet)
 			var payload gopacket.Payload
 			_ = payload
 			arplayer := packet.Layer(layers.LayerTypeARP)
@@ -465,21 +465,10 @@ func tcpdump_caparp(info map[string]interface{}){
 					}
 
 					// Send one packet.
-					//bytes, err := buf.PrependBytes(len(icmp.Payload))
-					//if err != nil {
-					//	return
-					//}
-					//copy(bytes, icmp.Payload)
 					var payload gopacket.Payload = icmp.Payload
 					payload.SerializeTo(buf, opts)
-					//fmt.Println("----------------------------------")
-					//fmt.Print(hex.Dump(buf.Bytes()))
 					icmp.SerializeTo(buf,opts)
-					//fmt.Println("----------------------------------")
-					//fmt.Print(hex.Dump(buf.Bytes()))
 					ip.SerializeTo(buf,opts)
-					//fmt.Println("----------------------------------")
-					//fmt.Print(hex.Dump(buf.Bytes()))
 					eth.SerializeTo(buf,opts)
 					fmt.Println("----------------------------------")
 					fmt.Print(hex.Dump(buf.Bytes()))
@@ -993,7 +982,8 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
         if _,ok := data["object"];ok {
             object := data["object"]  //host
             fmt.Printf("%-10s%s\n","OBJECT     NAME :",object)
-            if _,ok := ntx_data["object"];ok {
+            //log.Printf("ntx_gethostinfo : %v", ntx_data)
+            if _,ok := ntx_data[object];ok {
                 host := ntx_gethostinfo(object)
                 host_sendarp(&host,"");
             }
@@ -1029,8 +1019,8 @@ func sim_ntx(socket *net.UDPConn, client *net.UDPAddr, order string , args ...st
             object := data["object"]
             fmt.Printf("%-10s%s\n","OBJECT     NAME :",object)
             delete(data,"object")
+            tmpv := ntx_data[object].(map[string]string)
             for k1,v1 := range(data){
-            	tmpv := ntx_data["object"].(map[string]string)
             	tmpv[k1] = v1
             }
         }
@@ -1600,20 +1590,39 @@ func ntx_stopstream(port string,streamlist []string){
 func ntx_gethostinfo(hostname string) map[string]string {
 	_ = hostname
 	host := make(map[string]string)
-	
- /*   my ($hostname) = @_;
-    our %ntx_data;
-    my %host = %{$ntx_data{$hostname}};
-    my $port = $ntx_data{$hostname}{object};
-    $host{vid} = 0;
-    if (#(not exists $interface{$port}) &&
-        exists $ntx_data{$port}{subintname}) {
-        if (exists $ntx_data{$port}{vlanid}) {
-            $host{vlanid} = $ntx_data{$port}{vlanid};
-        }
-        $port = $ntx_data{$port}{object};  #是子接口，就换成实接口
-    }
-    $host{port} = $port;*/
+	log.Printf("ntx_gethostinfo : %v", ntx_data)
+	/*map[ 
+	    myhost11:map[
+		    ipv4addr: 190.168.106.57 
+		    ipv4sutaddr: 190.168.106.1 
+		    arpd: enable 
+		    flagping: enable 
+		    ipv6addr: 6000::2 
+		    hostname: myhost11 
+		    ipv4mask: 24 
+		    ipv6mask: 96 
+		    ipv6sutaddr: 6000::1 
+		    object: port1 
+		    macaddr: 00:01:00:00:00:01]]
+    */
+	if _,ok :=ntx_data[hostname];!ok {
+		return host
+	} 
+	hostinfo := ntx_data[hostname].(map[string]string)
+	host["vid"] = "0"
+	for k, v := range hostinfo {
+		host[k] = v
+	}
+	port := hostinfo["object"]
+	if _,ok := ntx_data[port];ok {
+		subport := ntx_data[port].(map[string]string)
+		if _,ok1 := subport["subintname"];ok1{
+			if _,ok2 := subport["vlanid"];ok2{
+				host["vid"] = subport["vlanid"]
+			}
+		}
+	}
+	host["port"] = port
     return host;
 }
 
@@ -1743,6 +1752,28 @@ func ntx_getinfo(data *map[string]string){
 func host_sendarp(host *map[string]string,destip string){
 	_ = host
 	_ = destip
+	log.Printf("host_sendarp : %v\n",host)
+	log.Printf("host_sendarp destip :  %v\n", destip)
+	/*host_sendarp : &map[
+	macaddr: 00:01:00:00:00:01 
+	ipv4mask: 24 
+	ipv6addr: 6000::2 
+	port: port1 
+	ipv6sutaddr: 6000::1 
+	hostname: myhost11 
+	ipv4addr: 190.168.106.57 
+	ipv4sutaddr: 190.168.106.1 
+	arpd: enable 
+	flagping: enable 
+	ipv6mask: 96 
+	vid:0 
+	object: port1]*/
+	//pcap_handle =: InterfaceAll
+	//tcpdump_sendArp(pcap_handle,
+	//							[]byte(arpd[macinfo1]),
+	//							arp.SourceHwAddress,
+	//							arp.DstProtAddress,
+	//							arp.SourceProtAddress)
 /*    my ($host,$destip) = @_;
     my $port = $$host{port};
     my $arp;
