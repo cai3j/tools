@@ -156,7 +156,7 @@ func ExePacket(args []string) error {
 	var err error
 	if args[0] == "interface" {
 		// Open up a pcap handle for packet reads/writes.
-		handle, err = pcap.OpenLive(args[0], 65536, true, pcap.BlockForever) // 打开pcap的接口
+		handle, err = pcap.OpenLive(args[1], 65536, true, pcap.BlockForever) // 打开pcap的接口
 	} else if args[0] == "file" {
 		if len(args) <=1{
 			log.Printf("Argument error!")
